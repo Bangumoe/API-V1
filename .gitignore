@@ -1,3 +1,10 @@
 tmp/
 runner-build
 runner-build-errors.log
+
+*.log
+
+logs/*
+
+uploads/avatars/*
+uploads/posters/*
