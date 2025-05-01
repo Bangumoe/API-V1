@@ -1,0 +1,948 @@
+basePath: /api/v1
+definitions:
+  controllers.BangumiResponse:
+    properties:
+      code:
+        type: integer
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+      total:
+        type: integer
+    type: object
+  controllers.LogResponse:
+    properties:
+      code:
+        type: integer
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  controllers.LoginRequest:
+    properties:
+      password:
+        example: password123
+        type: string
+      username:
+        example: user123
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  controllers.LoginResponse:
+    properties:
+      message:
+        example: 登录成功
+        type: string
+      role:
+        example: regular
+        type: string
+      token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  controllers.RSSResponse:
+    properties:
+      code:
+        type: integer
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  controllers.Response:
+    properties:
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  controllers.SystemStatsResponse:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  models.Activity:
+    description: 系统活动记录
+    properties:
+      content:
+        example: 新用户 "AnimeUser" 注册成功
+        type: string
+      created_at:
+        example: "2024-01-20T15:04:05Z"
+        type: string
+      id:
+        example: 1
+        type: integer
+      type:
+        example: user
+        type: string
+    type: object
+  models.RSSFeedRequest:
+    properties:
+      keywords:
+        example: 莉可丽丝,友谊是时间的窃贼
+        type: string
+      name:
+        example: 莉可丽丝
+        type: string
+      parser_type:
+        example: mikanani
+        type: string
+      priority:
+        example: 0
+        type: integer
+      update_interval:
+        example: 1
+        type: integer
+      url:
+        example: https://mikanani.me/RSS/Bangumi?bangumiId=3644
+        type: string
+    required:
+    - name
+    - parser_type
+    - update_interval
+    - url
+    type: object
+  models.RSSFeedResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      keywords:
+        type: string
+      name:
+        type: string
+      parser_type:
+        type: string
+      priority:
+        type: integer
+      update_interval:
+        type: integer
+      updated_at:
+        type: string
+      url:
+        type: string
+    type: object
+host: localhost:8081
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: 这是一个动画网站的后端API服务
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: 动画网站 API
+  version: "1.0"
+paths:
+  /activities:
+    get:
+      consumes:
+      - application/json
+      description: 获取系统中最近的活动记录，包括用户操作、RSS更新等
+      parameters:
+      - description: 返回记录数量限制(默认20)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Activity'
+                  type: array
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      security:
+      - Bearer: []
+      summary: 获取最近活动记录
+      tags:
+      - 系统管理
+  /admin/logs:
+    get:
+      consumes:
+      - application/json
+      description: 获取系统日志文件的最新内容
+      parameters:
+      - description: 返回的日志行数(默认100)
+        in: query
+        maximum: 1000
+        minimum: 1
+        name: lines
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.LogResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.LogResponse'
+      security:
+      - Bearer: []
+      summary: 获取系统日志
+      tags:
+      - 系统管理
+  /admin/logs/watch:
+    get:
+      consumes:
+      - application/json
+      description: 通过WebSocket实时接收系统日志
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 实时监控系统日志
+      tags:
+      - 系统管理
+  /admin/stats:
+    get:
+      description: 获取系统中的番剧、用户和RSS订阅源总数统计
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.SystemStatsResponse'
+      summary: 获取系统统计信息
+      tags:
+      - 系统管理
+  /admin/system/status:
+    get:
+      description: 获取系统CPU、内存、磁盘和网络等实时状态信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.SystemStatsResponse'
+      summary: 获取系统状态信息
+      tags:
+      - 系统管理
+  /admin/users:
+    get:
+      consumes:
+      - application/json
+      description: 获取系统中所有用户的信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      security:
+      - Bearer: []
+      summary: 获取所有用户
+      tags:
+      - 用户管理
+  /admin/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定的用户
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      security:
+      - Bearer: []
+      summary: 删除用户
+      tags:
+      - 用户管理
+    get:
+      consumes:
+      - application/json
+      description: 通过用户ID获取特定用户信息
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      security:
+      - Bearer: []
+      summary: 获取单个用户
+      tags:
+      - 用户管理
+    put:
+      consumes:
+      - multipart/form-data
+      description: 更新指定用户的信息
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 用户名
+        in: formData
+        name: username
+        type: string
+      - description: 密码
+        in: formData
+        name: password
+        type: string
+      - description: 邮箱
+        in: formData
+        name: email
+        type: string
+      - description: 角色
+        in: formData
+        name: role
+        type: string
+      - description: 头像文件
+        in: formData
+        name: avatar
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      security:
+      - Bearer: []
+      summary: 更新用户信息
+      tags:
+      - 用户管理
+  /bangumi:
+    get:
+      description: 获取系统中所有番剧列表，支持分页
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取所有番剧
+      tags:
+      - 番剧管理
+  /bangumi/{id}:
+    get:
+      description: 通过ID获取特定番剧的详细信息
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取番剧详情
+      tags:
+      - 番剧管理
+  /bangumi/{id}/group_episode:
+    get:
+      description: 获取指定番剧的特定字幕组的特定集数的详细信息
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 字幕组名称
+        in: query
+        name: group
+        required: true
+        type: string
+      - description: 集数
+        in: query
+        name: episode
+        required: true
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取特定字幕组的特定集数信息
+      tags:
+      - 番剧管理
+  /bangumi/grouped_items/{id}:
+    get:
+      description: 获取指定番剧ID的所有RSS条目，并按字幕组分类
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取按字幕组分类的番剧RSS条目
+      tags:
+      - 番剧管理
+  /bangumi/items/{id}:
+    get:
+      description: 通过番剧ID获取相关的RSS条目，支持字幕组和来源筛选，以及集数范围筛选
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 字幕组
+        in: query
+        name: group
+        type: string
+      - description: 来源
+        in: query
+        name: source
+        type: string
+      - description: 最小集数
+        in: query
+        name: min_ep
+        type: number
+      - description: 最大集数
+        in: query
+        name: max_ep
+        type: number
+      - description: 特定集数
+        in: query
+        name: episode
+        type: number
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取番剧关联的RSS条目
+      tags:
+      - 番剧管理
+  /bangumi/search:
+    get:
+      description: 根据条件搜索番剧
+      parameters:
+      - description: 标题关键词
+        in: query
+        name: title
+        type: string
+      - description: 年份
+        in: query
+        name: year
+        type: string
+      - description: 季度
+        in: query
+        name: season
+        type: integer
+      - description: 来源
+        in: query
+        name: source
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 搜索番剧
+      tags:
+      - 番剧管理
+  /bangumi/stats:
+    get:
+      description: 获取系统中番剧的统计信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取番剧统计信息
+      tags:
+      - 番剧管理
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: 用户登录并获取token
+      parameters:
+      - description: 登录信息
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      summary: 用户登录
+      tags:
+      - 认证
+  /register:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 注册新用户
+      parameters:
+      - description: 用户名
+        in: formData
+        name: username
+        required: true
+        type: string
+      - description: 密码
+        in: formData
+        name: password
+        required: true
+        type: string
+      - description: 邮箱
+        in: formData
+        name: email
+        required: true
+        type: string
+      - description: 角色
+        in: formData
+        name: role
+        type: string
+      - description: 头像文件
+        in: formData
+        name: avatar
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      summary: 用户注册
+      tags:
+      - 认证
+  /rss_feeds:
+    get:
+      description: 获取系统中所有已配置的RSS订阅源列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.RSSResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.RSSFeedResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+      summary: 获取所有RSS订阅源
+      tags:
+      - RSS订阅源管理
+    post:
+      consumes:
+      - application/json
+      description: 创建新的RSS订阅源
+      parameters:
+      - description: RSS订阅源信息
+        in: body
+        name: feed
+        required: true
+        schema:
+          $ref: '#/definitions/models.RSSFeedRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.RSSResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.RSSFeedResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+      summary: 创建RSS订阅源
+      tags:
+      - RSS订阅源管理
+  /rss_feeds/{id}:
+    delete:
+      description: 删除指定ID的RSS订阅源
+      parameters:
+      - description: RSS订阅源ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+      summary: 删除RSS订阅源
+      tags:
+      - RSS订阅源管理
+    get:
+      description: 根据ID获取特定的RSS订阅源详细信息
+      parameters:
+      - description: RSS订阅源ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.RSSResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.RSSFeedResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+      summary: 获取单个RSS订阅源
+      tags:
+      - RSS订阅源管理
+    put:
+      consumes:
+      - application/json
+      description: 更新指定ID的RSS订阅源信息
+      parameters:
+      - description: RSS订阅源ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: RSS订阅源信息
+        in: body
+        name: feed
+        required: true
+        schema:
+          $ref: '#/definitions/models.RSSFeedRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.RSSResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.RSSFeedResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+      summary: 更新RSS订阅源
+      tags:
+      - RSS订阅源管理
+  /rss_feeds/{id}/update:
+    post:
+      description: 手动触发指定ID的RSS订阅源的更新任务
+      parameters:
+      - description: RSS订阅源ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+      summary: 手动更新指定RSS订阅
+      tags:
+      - RSS订阅源管理
+  /rss_feeds/update:
+    post:
+      description: 手动触发RSS订阅源的更新任务，立即返回并在后台执行更新
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.RSSResponse'
+      summary: 手动更新所有RSS订阅
+      tags:
+      - RSS订阅源管理
+  /user/info:
+    get:
+      consumes:
+      - application/json
+      description: 使用token获取当前登录用户的详细信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      security:
+      - Bearer: []
+      summary: 获取当前用户信息
+      tags:
+      - 用户
+securityDefinitions:
+  Bearer:
+    description: 请在此输入 Bearer token
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
