@@ -4,7 +4,8 @@ runner-build-errors.log
 
 *.log
 
-logs/*
+logs/
+/logs/**
 
-uploads/avatars/*
-uploads/posters/*
+uploads/*
+!uploads/**/
