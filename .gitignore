@@ -7,8 +7,11 @@ runner-build-errors.log
 logs/
 /logs/**
 
-uploads/*
-!uploads/**/
+# Ignore contents of specific upload folders, but keep the folders
+uploads/avatars/*
+!uploads/avatars/.gitkeep
+uploads/posters/*
+!uploads/posters/.gitkeep
 
 # Go build output
 *.exe
