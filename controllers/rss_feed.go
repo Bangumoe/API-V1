@@ -320,7 +320,8 @@ func DeleteRSSFeed(c *gin.Context) {
 		return
 	}
 
-	if err := models.DB.Unscoped().Delete(&feed).Error; err != nil {
+	// 直接删除 RSS 订阅源
+	if err := models.DB.Delete(&feed).Error; err != nil {
 		utils.LogError(fmt.Sprintf("删除ID为%s的RSS订阅源失败", id), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": http.StatusInternalServerError, "message": "删除RSS订阅源失败", "error": err.Error()})
 		return
