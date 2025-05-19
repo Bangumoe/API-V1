@@ -12,6 +12,8 @@ type RSSFeedRequest struct {
 	Keywords       string `json:"keywords" example:"莉可丽丝,友谊是时间的窃贼" description:"关键词，多个关键词用逗号分隔"`
 	Priority       int    `json:"priority" example:"0" description:"优先级"`
 	ParserType     string `json:"parser_type" example:"mikanani" binding:"required" description:"解析器类型（mikanani/generic_rss）"`
+	PageStart      *int   `json:"page_start,omitempty" example:"1" description:"分页起始页码（可选）"`
+	PageEnd        *int   `json:"page_end,omitempty" example:"5" description:"分页结束页码（可选）"`
 }
 
 // RSSFeedResponse 用于 Swagger 文档的RSS订阅源响应模型
@@ -25,6 +27,8 @@ type RSSFeedResponse struct {
 	ParserType     string `json:"parser_type" description:"解析器类型（mikanani/generic_rss）"`
 	CreatedAt      string `json:"created_at" description:"创建时间"`
 	UpdatedAt      string `json:"updated_at" description:"更新时间"`
+	PageStart      *int   `json:"page_start,omitempty" description:"分页起始页码（可选）"`
+	PageEnd        *int   `json:"page_end,omitempty" description:"分页结束页码（可选）"`
 }
 
 // RSSFeed RSS订阅源模型（数据库模型）
@@ -36,6 +40,8 @@ type RSSFeed struct {
 	Keywords       string `json:"keywords" gorm:"type:text" description:"关键词，多个关键词用逗号分隔"`
 	Priority       int    `json:"priority" gorm:"type:int;default:0" description:"优先级"`
 	ParserType     string `json:"parser_type" gorm:"type:varchar(20);not null;default:'mikanani'" description:"解析器类型（mikanani/generic_rss）"`
+	PageStart      *int   `json:"page_start,omitempty" gorm:"type:int" description:"分页起始页码（可选）"`
+	PageEnd        *int   `json:"page_end,omitempty" gorm:"type:int" description:"分页结束页码（可选）"`
 	// 可以添加与RSS条目的关联关系
 	// Items []RSSItem `json:"items,omitempty" gorm:"foreignKey:FeedID"`
 }

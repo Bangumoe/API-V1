@@ -1,22 +1,16 @@
 package parser
 
 import (
-	"backend/models"
 	"backend/utils"
-	"crypto/md5"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"gorm.io/gorm"
 )
 
 // parseRelativeDate 处理相对日期
@@ -158,8 +152,8 @@ func GetMikanBasicInfo(homepage string) (string, string, string, string, string,
 	return officialTitle, subGroup, originalTitle, releaseDate, releaseYear, releaseMonth, releaseDay, torrentLink, magnetLink, "", nil
 }
 
-// DownloadMikanPoster 下载并保存海报
-func DownloadMikanPoster(homepage string, db *gorm.DB) (string, error) {
+// GetMikanPosterURL 获取Mikan页面的海报URL
+func GetMikanPosterURL(homepage string) (string, error) {
 	// 解析URL获取主机名
 	parsedURL, err := url.Parse(homepage)
 	if err != nil {
@@ -197,76 +191,7 @@ func DownloadMikanPoster(homepage string, db *gorm.DB) (string, error) {
 		posterPath = strings.Split(posterPath, "?")[0]
 	}
 
-	// 下载并保存海报
-	imgURL := fmt.Sprintf("https://%s%s", rootPath, posterPath)
-	return downloadAndSaveImage(imgURL, db)
-}
-
-// saveImage 保存图片到本地
-// 参数：imgData - 图片数据，suffix - 图片后缀，db - 数据库连接
-// 返回：保存的图片路径
-func saveImage(imgData []byte, suffix string, db *gorm.DB) (string, error) {
-	// 计算图片数据的hash
-	hash := fmt.Sprintf("%x", md5.Sum(imgData))
-
-	// 查询是否存在相同hash的记录
-	var existingBangumi models.Bangumi
-	if result := db.Where("poster_hash = ?", hash).First(&existingBangumi); result.Error == nil {
-		if existingBangumi.PosterLink != nil {
-			utils.LogInfo(fmt.Sprintf("发现相同hash的图片[%s]，直接使用已有文件", *existingBangumi.PosterLink))
-			return *existingBangumi.PosterLink, nil
-		}
-	}
-
-	// 确保uploads目录存在
-	uploadsDir := "./uploads/posters"
-	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
-		return "", err
-	}
-
-	// 生成唯一文件名
-	timestamp := time.Now().UnixNano()
-	fileName := fmt.Sprintf("poster_%d%s", timestamp, suffix)
-	filePath := filepath.Join(uploadsDir, fileName)
-
-	// 写入文件
-	if err := os.WriteFile(filePath, imgData, 0644); err != nil {
-		return "", err
-	}
-
-	utils.LogInfo(fmt.Sprintf("已保存新图片: %s", filePath))
-	return filePath, nil
-}
-
-// downloadAndSaveImage 下载并保存图片
-func downloadAndSaveImage(imgURL string, db *gorm.DB) (string, error) {
-	// 下载图片
-	imgResp, err := http.Get(imgURL)
-	if err != nil {
-		utils.LogError("下载图片失败", err)
-		return "", err
-	}
-	defer imgResp.Body.Close()
-
-	if imgResp.StatusCode != http.StatusOK {
-		err := errors.New(fmt.Sprintf("下载图片失败，状态码：%d", imgResp.StatusCode))
-		utils.LogError("下载图片失败", err)
-		return "", err
-	}
-
-	// 读取图片内容
-	imgData, err := io.ReadAll(imgResp.Body)
-	if err != nil {
-		utils.LogError("读取图片内容失败", err)
-		return "", err
-	}
-
-	// 获取图片后缀
-	suffix := filepath.Ext(imgURL)
-	if suffix == "" {
-		suffix = ".jpg" // 默认后缀
-	}
-
-	// 保存图片
-	return saveImage(imgData, suffix, db)
+	// 返回海报的完整URL
+	posterFullURL := fmt.Sprintf("https://%s%s", rootPath, posterPath)
+	return posterFullURL, nil
 }

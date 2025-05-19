@@ -75,6 +75,7 @@ func (uc *UserManagementController) GetUser(c *gin.Context) {
 // @Param        password formData string false "密码"
 // @Param        email formData string false "邮箱"
 // @Param        role formData string false "角色"
+// @Param        is_allowed formData string false "是否允许访问"
 // @Param        avatar formData file false "头像文件"
 // @Security     Bearer
 // @Success      200  {object}  Response
@@ -110,10 +111,29 @@ func (uc *UserManagementController) UpdateUser(c *gin.Context) {
 		switch role {
 		case models.RoleAdmin, models.RolePremium, models.RoleRegular:
 			user.Role = role
+			// 如果是管理员，自动设置is_allowed为true
+			if role == models.RoleAdmin {
+				user.IsAllowed = true
+			}
 		default:
 			c.JSON(http.StatusBadRequest, Response{Error: "无效的用户角色"})
 			return
 		}
+	}
+
+	// 处理is_allowed字段
+	if isAllowed := c.PostForm("is_allowed"); isAllowed != "" {
+		allowed, err := strconv.ParseBool(isAllowed)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, Response{Error: "无效的is_allowed值"})
+			return
+		}
+		// 如果是管理员，不允许关闭is_allowed
+		if user.Role == models.RoleAdmin && !allowed {
+			c.JSON(http.StatusBadRequest, Response{Error: "管理员不能关闭内测访问权限"})
+			return
+		}
+		user.IsAllowed = allowed
 	}
 
 	// 处理头像上传

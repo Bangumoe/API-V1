@@ -27,9 +27,12 @@ func InitDB() (*gorm.DB, error) {
 	err = db.AutoMigrate(
 		&models.User{},
 		&models.RSSFeed{},
-		&models.Bangumi{},
 		&models.RSSItem{},
+		&models.Bangumi{},
 		&models.Activity{},
+		&models.BangumiFavorite{},
+		&models.BangumiRating{},
+		&models.Carousel{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("数据库迁移失败: %v", err)

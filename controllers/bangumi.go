@@ -3,6 +3,7 @@ package controllers
 import (
 	"backend/models"
 	"backend/utils"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"sort"
@@ -56,6 +57,31 @@ type RSSDetail struct {
 	ReleaseDate string   `json:"release_date"`
 }
 
+// EpisodeInfo represents the innermost details of an episode.
+type EpisodeInfo struct {
+	Episode     *float64 `json:"episode"`
+	URL         string   `json:"url"`
+	ReleaseDate string   `json:"release_date"`
+}
+
+// SubGroupedEpisodes represents episodes grouped by subtitle type.
+type SubGroupedEpisodes struct {
+	SubType  string        `json:"sub_type"`
+	Episodes []EpisodeInfo `json:"episodes"`
+}
+
+// ResolutionGroupedSubs represents subtitle groups classified by resolution.
+type ResolutionGroupedSubs struct {
+	ResolutionName string               `json:"resolution_name"`
+	SubGroups      []SubGroupedEpisodes `json:"sub_groups"`
+}
+
+// GroupedByResolutionAndSub represents RSS items grouped by group, then resolution, then sub.
+type GroupedByResolutionAndSub struct {
+	GroupName   string                  `json:"group_name"`
+	Resolutions []ResolutionGroupedSubs `json:"resolutions"`
+}
+
 // @Summary 获取所有番剧
 // @Description 获取系统中所有番剧列表，支持分页
 // @Tags 番剧管理
@@ -89,6 +115,9 @@ func GetAllBangumi(c *gin.Context) {
 
 	// 构建查询
 	query := models.DB.Model(&models.Bangumi{})
+
+	// 添加按年份倒序排序
+	query = query.Order("year DESC")
 
 	// 执行计数
 	if err := query.Count(&total).Error; err != nil {
@@ -304,9 +333,6 @@ func GetBangumiRSSItems(c *gin.Context) {
 		Preload("RssFeed"). // 预加载RSS源信息
 		Where("bangumi_id = ?", id)
 
-	// 添加表名
-	query = query.Table("rss_items")
-
 	// 添加筛选条件，只有当参数有实际值时才添加条件
 	if params.Group != "" {
 		query = query.Where("`group` = ?", params.Group)
@@ -369,14 +395,14 @@ func GetBangumiRSSItems(c *gin.Context) {
 	})
 }
 
-// @Summary 获取按字幕组分类的番剧RSS条目
-// @Description 获取指定番剧ID的所有RSS条目，并按字幕组分类
+// @Summary 获取按字幕组、分辨率、字幕类型分类的番剧RSS条目
+// @Description 获取指定番剧ID的所有RSS条目，并按字幕组、分辨率、字幕类型分类。
 // @Tags 番剧管理
 // @Produce json
 // @Param id path int true "番剧ID"
-// @Success 200 {object} BangumiResponse
-// @Failure 404 {object} BangumiResponse
-// @Failure 500 {object} BangumiResponse
+// @Success 200 {object} BangumiResponse{data=[]GroupedByResolutionAndSub} "成功获取分组RSS条目"
+// @Failure 404 {object} BangumiResponse "番剧未找到"
+// @Failure 500 {object} BangumiResponse "服务器内部错误"
 // @Router /bangumi/grouped_items/{id} [get]
 func GetGroupedBangumiRSSItems(c *gin.Context) {
 	id := c.Param("id")
@@ -402,7 +428,7 @@ func GetGroupedBangumiRSSItems(c *gin.Context) {
 	// 获取所有相关RSS条目
 	var rssItems []models.RSSItem
 	if err := models.DB.Where("bangumi_id = ?", id).
-		Order("`group` ASC, episode ASC").
+		Order("`group` ASC, resolution ASC, sub ASC, episode ASC").
 		Find(&rssItems).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, BangumiResponse{
 			Code:    http.StatusInternalServerError,
@@ -412,31 +438,80 @@ func GetGroupedBangumiRSSItems(c *gin.Context) {
 		return
 	}
 
-	// 按字幕组分类
-	groupedItems := make(map[string][]RSSDetail)
+	// 按字幕组、分辨率、字幕类型分类
+	groupedData := make(map[string]map[string]map[string][]EpisodeInfo)
+
 	for _, item := range rssItems {
-		detail := RSSDetail{
+		group := item.Group
+		if group == "" {
+			group = "未知字幕组"
+		}
+		resolution := item.Resolution
+		if resolution == "" {
+			resolution = "未知分辨率"
+		}
+		sub := item.Sub
+		if sub == "" {
+			sub = "未知字幕"
+		}
+
+		if _, ok := groupedData[group]; !ok {
+			groupedData[group] = make(map[string]map[string][]EpisodeInfo)
+		}
+		if _, ok := groupedData[group][resolution]; !ok {
+			groupedData[group][resolution] = make(map[string][]EpisodeInfo)
+		}
+
+		episodeDetail := EpisodeInfo{
 			Episode:     item.Episode,
-			Resolution:  item.Resolution,
 			URL:         item.URL,
 			ReleaseDate: item.ReleaseDate,
 		}
-		groupedItems[item.Group] = append(groupedItems[item.Group], detail)
+		groupedData[group][resolution][sub] = append(groupedData[group][resolution][sub], episodeDetail)
 	}
 
-	// 转换为响应格式
-	var result []GroupedRSSItems
-	for groupName, episodes := range groupedItems {
-		result = append(result, GroupedRSSItems{
-			GroupName: groupName,
-			Episodes:  episodes,
+	var result []GroupedByResolutionAndSub
+	var groupNames []string
+	for gn := range groupedData {
+		groupNames = append(groupNames, gn)
+	}
+	sort.Strings(groupNames)
+
+	for _, groupName := range groupNames {
+		resolutionsMap := groupedData[groupName]
+		var resolutionGroupedSubsList []ResolutionGroupedSubs
+		var resolutionNames []string
+		for rn := range resolutionsMap {
+			resolutionNames = append(resolutionNames, rn)
+		}
+		sort.Strings(resolutionNames)
+
+		for _, resolutionName := range resolutionNames {
+			subsMap := resolutionsMap[resolutionName]
+			var subGroupedEpisodesList []SubGroupedEpisodes
+			var subTypes []string
+			for st := range subsMap {
+				subTypes = append(subTypes, st)
+			}
+			sort.Strings(subTypes)
+
+			for _, subType := range subTypes {
+				episodes := subsMap[subType]
+				subGroupedEpisodesList = append(subGroupedEpisodesList, SubGroupedEpisodes{
+					SubType:  subType,
+					Episodes: episodes,
+				})
+			}
+			resolutionGroupedSubsList = append(resolutionGroupedSubsList, ResolutionGroupedSubs{
+				ResolutionName: resolutionName,
+				SubGroups:      subGroupedEpisodesList,
+			})
+		}
+		result = append(result, GroupedByResolutionAndSub{
+			GroupName:   groupName,
+			Resolutions: resolutionGroupedSubsList,
 		})
 	}
-
-	// 按字幕组名称排序
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].GroupName < result[j].GroupName
-	})
 
 	c.JSON(http.StatusOK, BangumiResponse{
 		Code:    http.StatusOK,
@@ -558,5 +633,1355 @@ func GetGroupEpisodeInfo(c *gin.Context) {
 			"resolution":   rssItem.Resolution,
 			"release_date": rssItem.ReleaseDate,
 		},
+	})
+}
+
+// @Summary 增加番剧点击量
+// @Description 为指定ID的番剧增加一次点击量
+// @Tags 番剧统计
+// @Produce json
+// @Param id path int true "番剧ID"
+// @Success 200 {object} BangumiResponse "点击量增加成功"
+// @Failure 400 {object} BangumiResponse "无效的番剧ID"
+// @Failure 404 {object} BangumiResponse "番剧未找到"
+// @Failure 500 {object} BangumiResponse "服务器内部错误"
+// @Router /bangumi/{id}/view [post]
+func IncrementViewCount(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的番剧ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var bangumi models.Bangumi
+	// 使用 GORM 的 乐观锁 功能来处理并发更新
+	result := models.DB.Model(&bangumi).Where("id = ?", uint(id)).UpdateColumn("view_count", gorm.Expr("view_count + ?", 1))
+
+	if result.Error != nil {
+		utils.LogError(fmt.Sprintf("增加番剧[%d]点击量失败", id), result.Error)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "增加点击量失败",
+			Error:   result.Error.Error(),
+		})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, BangumiResponse{
+			Code:    http.StatusNotFound,
+			Message: "番剧未找到或更新失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "点击量增加成功",
+	})
+}
+
+// @Summary 收藏/取消收藏番剧
+// @Description 用户收藏或取消收藏指定ID的番剧
+// @Tags 番剧统计
+// @Security ApiKeyAuth
+// @Produce json
+// @Param id path int true "番剧ID"
+// @Success 200 {object} BangumiResponse "操作成功"
+// @Failure 400 {object} BangumiResponse "无效的番剧ID"
+// @Failure 401 {object} BangumiResponse "用户未认证"
+// @Failure 404 {object} BangumiResponse "番剧未找到"
+// @Failure 500 {object} BangumiResponse "服务器内部错误"
+// @Router /bangumi/{id}/favorite [post]
+func ToggleFavorite(c *gin.Context) {
+	userIDValue, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, BangumiResponse{
+			Code:    http.StatusUnauthorized,
+			Message: "用户未认证",
+		})
+		return
+	}
+
+	// 断言 user_id 为 float64 (JWT 标准)，然后转换为 uint
+	userIDFloat, ok := userIDValue.(float64)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, BangumiResponse{
+			Code:    http.StatusUnauthorized,
+			Message: "无效的用户ID格式",
+		})
+		return
+	}
+	uid := uint(userIDFloat)
+
+	idStr := c.Param("id")
+	bangumiID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的番剧ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 检查番剧是否存在
+	var bangumi models.Bangumi
+	if err := models.DB.First(&bangumi, uint(bangumiID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, BangumiResponse{
+				Code:    http.StatusNotFound,
+				Message: "番剧未找到",
+			})
+		} else {
+			utils.LogError(fmt.Sprintf("查找番剧[%d]失败", bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "服务器内部错误",
+				Error:   err.Error(),
+			})
+		}
+		return
+	}
+
+	tx := models.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 检查是否已收藏
+	var favorite models.BangumiFavorite
+	err = tx.Unscoped().Where("user_id = ? AND bangumi_id = ?", uid, uint(bangumiID)).First(&favorite).Error
+
+	if err == gorm.ErrRecordNotFound {
+		// 添加收藏
+		newFavorite := models.BangumiFavorite{
+			UserID:    uid,
+			BangumiID: uint(bangumiID),
+		}
+		if err := tx.Create(&newFavorite).Error; err != nil {
+			tx.Rollback()
+			utils.LogError(fmt.Sprintf("用户[%d]收藏番剧[%d]失败", uid, bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "收藏失败",
+				Error:   err.Error(),
+			})
+			return
+		}
+		// 更新番剧收藏计数
+		if err := tx.Model(&models.Bangumi{}).Where("id = ?", uint(bangumiID)).UpdateColumn("favorite_count", gorm.Expr("favorite_count + ?", 1)).Error; err != nil {
+			tx.Rollback()
+			utils.LogError(fmt.Sprintf("更新番剧[%d]收藏数失败", bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "更新收藏数失败",
+				Error:   err.Error(),
+			})
+			return
+		}
+		if err := tx.Commit().Error; err != nil {
+			utils.LogError("提交收藏事务失败", err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "收藏操作失败",
+				Error:   err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, BangumiResponse{
+			Code:    http.StatusOK,
+			Message: "收藏成功",
+		})
+	} else if err == nil {
+		// 取消收藏
+		if err := tx.Unscoped().Delete(&favorite).Error; err != nil {
+			tx.Rollback()
+			utils.LogError(fmt.Sprintf("用户[%d]取消收藏番剧[%d]失败", uid, bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "取消收藏失败",
+				Error:   err.Error(),
+			})
+			return
+		}
+		// 更新番剧收藏计数，确保不会出现负数
+		if err := tx.Model(&models.Bangumi{}).
+			Where("id = ? AND favorite_count > 0", uint(bangumiID)).
+			UpdateColumn("favorite_count", gorm.Expr("favorite_count - ?", 1)).Error; err != nil {
+			tx.Rollback()
+			utils.LogError(fmt.Sprintf("更新番剧[%d]收藏数失败", bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "更新收藏数失败",
+				Error:   err.Error(),
+			})
+			return
+		}
+		if err := tx.Commit().Error; err != nil {
+			utils.LogError("提交取消收藏事务失败", err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "取消收藏操作失败",
+				Error:   err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, BangumiResponse{
+			Code:    http.StatusOK,
+			Message: "取消收藏成功",
+		})
+	} else {
+		tx.Rollback()
+		utils.LogError(fmt.Sprintf("查询用户[%d]对番剧[%d]的收藏状态失败", uid, bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "操作失败",
+			Error:   err.Error(),
+		})
+	}
+}
+
+// @Summary 添加或更新番剧评分
+// @Description 用户为指定ID的番剧添加或更新评分
+// @Tags 番剧统计
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param id path int true "番剧ID"
+// @Param rating body models.BangumiRatingRequest true "评分信息"
+// @Success 200 {object} BangumiResponse{data=models.BangumiRatingResponse} "操作成功"
+// @Failure 400 {object} BangumiResponse "无效的请求参数或番剧ID"
+// @Failure 401 {object} BangumiResponse "用户未认证"
+// @Failure 404 {object} BangumiResponse "番剧未找到"
+// @Failure 500 {object} BangumiResponse "服务器内部错误"
+// @Router /bangumi/{id}/rating [post]
+func AddOrUpdateRating(c *gin.Context) {
+	userIDValue, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, BangumiResponse{
+			Code:    http.StatusUnauthorized,
+			Message: "用户未认证",
+		})
+		return
+	}
+	// 断言 user_id 为 float64 (JWT 标准)，然后转换为 uint
+	userIDFloat, ok := userIDValue.(float64)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, BangumiResponse{
+			Code:    http.StatusUnauthorized,
+			Message: "无效的用户ID格式",
+		})
+		return
+	}
+	uid := uint(userIDFloat)
+
+	idStr := c.Param("id")
+	bangumiID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的番剧ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req models.BangumiRatingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的评分数据",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 检查番剧是否存在
+	var bangumi models.Bangumi
+	if err := models.DB.First(&bangumi, uint(bangumiID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, BangumiResponse{
+				Code:    http.StatusNotFound,
+				Message: "番剧未找到",
+			})
+		} else {
+			utils.LogError(fmt.Sprintf("查找番剧[%d]失败", bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "服务器内部错误",
+				Error:   err.Error(),
+			})
+		}
+		return
+	}
+
+	tx := models.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var rating models.BangumiRating
+	err = tx.Unscoped().Where("user_id = ? AND bangumi_id = ?", uid, uint(bangumiID)).First(&rating).Error
+
+	var isNewRating bool
+	if err == gorm.ErrRecordNotFound {
+		// 新增评分
+		isNewRating = true
+		rating = models.BangumiRating{
+			UserID:    uid,
+			BangumiID: uint(bangumiID),
+			Score:     req.Score,
+			Comment:   req.Comment,
+		}
+		if err := tx.Create(&rating).Error; err != nil {
+			tx.Rollback()
+			utils.LogError(fmt.Sprintf("用户[%d]为番剧[%d]添加评分失败", uid, bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "添加评分失败",
+				Error:   err.Error(),
+			})
+			return
+		}
+	} else if err == nil {
+		// 更新评分
+		isNewRating = false
+		rating.Score = req.Score
+		rating.Comment = req.Comment
+		if err := tx.Save(&rating).Error; err != nil {
+			tx.Rollback()
+			utils.LogError(fmt.Sprintf("用户[%d]更新番剧[%d]评分失败", uid, bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "更新评分失败",
+				Error:   err.Error(),
+			})
+			return
+		}
+	} else {
+		tx.Rollback()
+		utils.LogError(fmt.Sprintf("查询用户[%d]对番剧[%d]的评分失败", uid, bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "评分操作失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 更新番剧的平均分和评分人数
+	if err := updateBangumiRatingStats(tx, uint(bangumiID), isNewRating); err != nil {
+		tx.Rollback()
+		utils.LogError(fmt.Sprintf("更新番剧[%d]评分统计失败", bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "更新番剧统计信息失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		utils.LogError("提交评分事务失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "评分操作失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	response := models.BangumiRatingResponse{
+		ID:        rating.ID,
+		UserID:    rating.UserID,
+		BangumiID: rating.BangumiID,
+		Score:     rating.Score,
+		Comment:   rating.Comment,
+		CreatedAt: rating.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: rating.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "评分操作成功",
+		Data:    response,
+	})
+}
+
+// updateBangumiRatingStats 更新番剧的平均分和评分人数
+func updateBangumiRatingStats(tx *gorm.DB, bangumiID uint, isNewRating bool) error {
+	var avgScore sql.NullFloat64
+	var ratingCount int64
+
+	// 计算总分和评分人数
+	result := tx.Model(&models.BangumiRating{}).
+		Where("bangumi_id = ?", bangumiID).
+		Select("ROUND(AVG(score), 2) as avg_score, COUNT(*) as rating_count").
+		Row().
+		Scan(&avgScore, &ratingCount)
+	if result != nil {
+		return fmt.Errorf("计算评分统计失败: %v", result)
+	}
+
+	// 确保平均分在有效范围内
+	score := 0.0
+	if avgScore.Valid {
+		score = avgScore.Float64
+		if score < 0 {
+			score = 0
+		} else if score > 10 {
+			score = 10
+		}
+	}
+
+	// 更新 Bangumi 表
+	updateData := map[string]interface{}{
+		"rating_avg":   score,
+		"rating_count": ratingCount,
+	}
+
+	if err := tx.Model(&models.Bangumi{}).Where("id = ?", bangumiID).Updates(updateData).Error; err != nil {
+		return fmt.Errorf("更新番剧评分统计失败: %v", err)
+	}
+
+	return nil
+}
+
+// @Summary 获取用户对番剧的评分
+// @Description 获取当前登录用户对指定ID番剧的评分信息
+// @Tags 番剧统计
+// @Security ApiKeyAuth
+// @Produce json
+// @Param id path int true "番剧ID"
+// @Success 200 {object} BangumiResponse{data=models.BangumiRatingResponse} "获取评分成功"
+// @Failure 400 {object} BangumiResponse "无效的番剧ID"
+// @Failure 401 {object} BangumiResponse "用户未认证"
+// @Failure 404 {object} BangumiResponse "未找到评分记录或番剧"
+// @Failure 500 {object} BangumiResponse "服务器内部错误"
+// @Router /bangumi/{id}/rating [get]
+func GetUserRating(c *gin.Context) {
+	userIDValue, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, BangumiResponse{
+			Code:    http.StatusUnauthorized,
+			Message: "用户未认证",
+		})
+		return
+	}
+	// 断言 user_id 为 float64 (JWT 标准)，然后转换为 uint
+	userIDFloat, ok := userIDValue.(float64)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, BangumiResponse{
+			Code:    http.StatusUnauthorized,
+			Message: "无效的用户ID格式",
+		})
+		return
+	}
+	uid := uint(userIDFloat)
+
+	idStr := c.Param("id")
+	bangumiID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的番剧ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var rating models.BangumiRating
+	err = models.DB.Unscoped().Where("user_id = ? AND bangumi_id = ?", uid, uint(bangumiID)).First(&rating).Error
+
+	if err == gorm.ErrRecordNotFound {
+		c.JSON(http.StatusNotFound, BangumiResponse{
+			Code:    http.StatusNotFound,
+			Message: "未找到评分记录",
+		})
+		return
+	} else if err != nil {
+		utils.LogError(fmt.Sprintf("查询用户[%d]对番剧[%d]的评分失败", uid, bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取评分失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	response := models.BangumiRatingResponse{
+		ID:        rating.ID,
+		UserID:    rating.UserID,
+		BangumiID: rating.BangumiID,
+		Score:     rating.Score,
+		Comment:   rating.Comment,
+		CreatedAt: rating.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: rating.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "获取评分成功",
+		Data:    response,
+	})
+}
+
+// @Summary 删除用户对番剧的评分
+// @Description 删除当前登录用户对指定ID番剧的评分
+// @Tags 番剧统计
+// @Security ApiKeyAuth
+// @Produce json
+// @Param id path int true "番剧ID"
+// @Success 200 {object} BangumiResponse "删除评分成功"
+// @Failure 400 {object} BangumiResponse "无效的番剧ID"
+// @Failure 401 {object} BangumiResponse "用户未认证"
+// @Failure 404 {object} BangumiResponse "未找到评分记录或番剧"
+// @Failure 500 {object} BangumiResponse "服务器内部错误"
+// @Router /bangumi/{id}/rating [delete]
+func DeleteUserRating(c *gin.Context) {
+	userIDValue, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, BangumiResponse{
+			Code:    http.StatusUnauthorized,
+			Message: "用户未认证",
+		})
+		return
+	}
+	// 断言 user_id 为 float64 (JWT 标准)，然后转换为 uint
+	userIDFloat, ok := userIDValue.(float64)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, BangumiResponse{
+			Code:    http.StatusUnauthorized,
+			Message: "无效的用户ID格式",
+		})
+		return
+	}
+	uid := uint(userIDFloat)
+
+	idStr := c.Param("id")
+	bangumiID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的番剧ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tx := models.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var rating models.BangumiRating
+	err = tx.Unscoped().Where("user_id = ? AND bangumi_id = ?", uid, uint(bangumiID)).First(&rating).Error
+
+	if err == gorm.ErrRecordNotFound {
+		c.JSON(http.StatusNotFound, BangumiResponse{
+			Code:    http.StatusNotFound,
+			Message: "未找到评分记录",
+		})
+		return
+	} else if err != nil {
+		tx.Rollback()
+		utils.LogError(fmt.Sprintf("查询用户[%d]对番剧[%d]的评分失败", uid, bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "删除评分失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 删除评分记录
+	if err := tx.Unscoped().Delete(&rating).Error; err != nil {
+		tx.Rollback()
+		utils.LogError(fmt.Sprintf("删除用户[%d]对番剧[%d]的评分失败", uid, bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "删除评分失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 更新番剧的平均分和评分人数
+	if err := updateBangumiRatingStats(tx, uint(bangumiID), false); err != nil { // isNewRating is false because we are deleting
+		tx.Rollback()
+		utils.LogError(fmt.Sprintf("更新番剧[%d]评分统计失败", bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "更新番剧统计信息失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		utils.LogError("提交删除评分事务失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "删除评分操作失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "删除评分成功",
+	})
+}
+
+// @Summary 获取番剧点击量统计
+// @Description 获取番剧的点击量统计信息
+// @Tags 番剧统计
+// @Produce json
+// @Param page query int false "页码"
+// @Param page_size query int false "每页数量"
+// @Success 200 {object} BangumiResponse
+// @Failure 500 {object} BangumiResponse
+// @Router /bangumi/stats/views [get]
+func GetBangumiViewStats(c *gin.Context) {
+	var params struct {
+		Page     int `form:"page"`
+		PageSize int `form:"page_size"`
+	}
+
+	if err := c.ShouldBindQuery(&params); err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的请求参数",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 设置默认分页参数
+	if params.Page <= 0 {
+		params.Page = 1
+	}
+	if params.PageSize <= 0 {
+		params.PageSize = 10
+	}
+
+	var bangumis []models.Bangumi
+	var total int64
+
+	// 构建查询
+	query := models.DB.Model(&models.Bangumi{}).Order("view_count DESC")
+
+	// 执行计数
+	if err := query.Count(&total).Error; err != nil {
+		utils.LogError("获取番剧总数失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取番剧列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 执行分页查询
+	offset := (params.Page - 1) * params.PageSize
+	if err := query.Offset(offset).Limit(params.PageSize).Find(&bangumis).Error; err != nil {
+		utils.LogError("获取番剧列表失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取番剧列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "获取番剧点击量统计成功",
+		Data:    bangumis,
+		Total:   total,
+	})
+}
+
+// @Summary 获取番剧收藏量统计
+// @Description 获取番剧的收藏量统计信息
+// @Tags 番剧统计
+// @Produce json
+// @Param page query int false "页码"
+// @Param page_size query int false "每页数量"
+// @Success 200 {object} BangumiResponse
+// @Failure 500 {object} BangumiResponse
+// @Router /bangumi/stats/favorites [get]
+func GetBangumiFavoriteStats(c *gin.Context) {
+	var params struct {
+		Page     int `form:"page"`
+		PageSize int `form:"page_size"`
+	}
+
+	if err := c.ShouldBindQuery(&params); err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的请求参数",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 设置默认分页参数
+	if params.Page <= 0 {
+		params.Page = 1
+	}
+	if params.PageSize <= 0 {
+		params.PageSize = 10
+	}
+
+	var bangumis []models.Bangumi
+	var total int64
+
+	// 构建查询
+	query := models.DB.Model(&models.Bangumi{}).Order("favorite_count DESC")
+
+	// 执行计数
+	if err := query.Count(&total).Error; err != nil {
+		utils.LogError("获取番剧总数失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取番剧列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 执行分页查询
+	offset := (params.Page - 1) * params.PageSize
+	if err := query.Offset(offset).Limit(params.PageSize).Find(&bangumis).Error; err != nil {
+		utils.LogError("获取番剧列表失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取番剧列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "获取番剧收藏量统计成功",
+		Data:    bangumis,
+		Total:   total,
+	})
+}
+
+// @Summary 获取番剧评分统计
+// @Description 获取番剧的评分统计信息
+// @Tags 番剧统计
+// @Produce json
+// @Param page query int false "页码"
+// @Param page_size query int false "每页数量"
+// @Success 200 {object} BangumiResponse
+// @Failure 500 {object} BangumiResponse
+// @Router /bangumi/stats/ratings [get]
+func GetBangumiRatingStats(c *gin.Context) {
+	var params struct {
+		Page     int `form:"page"`
+		PageSize int `form:"page_size"`
+	}
+
+	if err := c.ShouldBindQuery(&params); err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的请求参数",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 设置默认分页参数
+	if params.Page <= 0 {
+		params.Page = 1
+	}
+	if params.PageSize <= 0 {
+		params.PageSize = 10
+	}
+
+	var bangumis []models.Bangumi
+	var total int64
+
+	// 构建查询，只查询有评分的番剧
+	query := models.DB.Model(&models.Bangumi{}).
+		Where("rating_count > 0").
+		Order("rating_avg DESC, rating_count DESC")
+
+	// 执行计数
+	if err := query.Count(&total).Error; err != nil {
+		utils.LogError("获取番剧总数失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取番剧列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 执行分页查询
+	offset := (params.Page - 1) * params.PageSize
+	if err := query.Offset(offset).Limit(params.PageSize).Find(&bangumis).Error; err != nil {
+		utils.LogError("获取番剧列表失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取番剧列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "获取番剧评分统计成功",
+		Data:    bangumis,
+		Total:   total,
+	})
+}
+
+// @Summary 获取番剧综合排名
+// @Description 获取番剧的综合排名（基于点击量、收藏量和评分的加权计算）
+// @Tags 番剧统计
+// @Produce json
+// @Param page query int false "页码"
+// @Param page_size query int false "每页数量"
+// @Success 200 {object} BangumiResponse
+// @Failure 500 {object} BangumiResponse
+// @Router /bangumi/stats/rankings [get]
+func GetBangumiRankings(c *gin.Context) {
+	var params struct {
+		Page     int `form:"page"`
+		PageSize int `form:"page_size"`
+	}
+
+	if err := c.ShouldBindQuery(&params); err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的请求参数",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 设置默认分页参数
+	if params.Page <= 0 {
+		params.Page = 1
+	}
+	if params.PageSize <= 0 {
+		params.PageSize = 10
+	}
+
+	var bangumis []models.Bangumi
+	var total int64
+
+	// 构建查询，计算综合得分
+	// 综合得分 = 点击量 * 0.3 + 收藏量 * 0.3 + 评分 * 0.4
+	query := models.DB.Model(&models.Bangumi{}).
+		Select("*, (view_count * 0.3 + favorite_count * 0.3 + rating_avg * 0.4) as score").
+		Order("score DESC")
+
+	// 执行计数
+	if err := query.Count(&total).Error; err != nil {
+		utils.LogError("获取番剧总数失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取番剧列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 执行分页查询
+	offset := (params.Page - 1) * params.PageSize
+	if err := query.Offset(offset).Limit(params.PageSize).Find(&bangumis).Error; err != nil {
+		utils.LogError("获取番剧列表失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取番剧列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "获取番剧综合排名成功",
+		Data:    bangumis,
+		Total:   total,
+	})
+}
+
+// @Summary 获取指定番剧的统计信息
+// @Description 获取指定番剧的点击量、收藏量和评分统计信息
+// @Tags 番剧统计
+// @Produce json
+// @Param id path int true "番剧ID"
+// @Success 200 {object} BangumiResponse
+// @Failure 404 {object} BangumiResponse
+// @Failure 500 {object} BangumiResponse
+// @Router /bangumi/{id}/stats [get]
+func GetBangumiStatsByID(c *gin.Context) {
+	idStr := c.Param("id")
+	bangumiID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的番剧ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 查询番剧信息
+	var bangumi models.Bangumi
+	if err := models.DB.First(&bangumi, uint(bangumiID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, BangumiResponse{
+				Code:    http.StatusNotFound,
+				Message: "番剧未找到",
+			})
+		} else {
+			utils.LogError(fmt.Sprintf("获取番剧[%d]统计信息失败", bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "获取番剧统计信息失败",
+				Error:   err.Error(),
+			})
+		}
+		return
+	}
+
+	// 构建统计信息
+	stats := map[string]interface{}{
+		"view_count":     bangumi.ViewCount,
+		"favorite_count": bangumi.FavoriteCount,
+		"rating_avg":     bangumi.RatingAvg,
+		"rating_count":   bangumi.RatingCount,
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "获取番剧统计信息成功",
+		Data:    stats,
+	})
+}
+
+// @Summary 获取指定番剧的评分详情
+// @Description 获取指定番剧的评分分布和详细统计信息
+// @Tags 番剧统计
+// @Produce json
+// @Param id path int true "番剧ID"
+// @Success 200 {object} BangumiResponse
+// @Failure 404 {object} BangumiResponse
+// @Failure 500 {object} BangumiResponse
+// @Router /bangumi/{id}/rating_stats [get]
+func GetBangumiRatingStatsByID(c *gin.Context) {
+	idStr := c.Param("id")
+	bangumiID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的番剧ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 查询评分分布
+	var ratingStats []struct {
+		Score float64 `gorm:"column:score"`
+		Count int64   `gorm:"column:count"`
+	}
+
+	if err := models.DB.Model(&models.BangumiRating{}).
+		Select("score, COUNT(*) as count").
+		Where("bangumi_id = ?", uint(bangumiID)).
+		Group("score").
+		Order("score ASC").
+		Scan(&ratingStats).Error; err != nil {
+		utils.LogError(fmt.Sprintf("获取番剧[%d]评分分布失败", bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取评分分布失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 构建评分分布数据
+	distribution := make(map[float64]int64)
+	for _, stat := range ratingStats {
+		distribution[stat.Score] = stat.Count
+	}
+
+	// 查询番剧基本信息
+	var bangumi models.Bangumi
+	if err := models.DB.First(&bangumi, uint(bangumiID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, BangumiResponse{
+				Code:    http.StatusNotFound,
+				Message: "番剧未找到",
+			})
+		} else {
+			utils.LogError(fmt.Sprintf("获取番剧[%d]基本信息失败", bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "获取番剧信息失败",
+				Error:   err.Error(),
+			})
+		}
+		return
+	}
+
+	// 构建完整响应
+	response := map[string]interface{}{
+		"rating_avg":   bangumi.RatingAvg,
+		"rating_count": bangumi.RatingCount,
+		"distribution": distribution,
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "获取评分统计信息成功",
+		Data:    response,
+	})
+}
+
+// @Summary 根据年份获取番剧列表
+// @Description 获取指定年份的所有番剧，支持分页
+// @Tags 番剧管理
+// @Produce json
+// @Param year path string true "年份"
+// @Param page query int false "页码"
+// @Param page_size query int false "每页数量"
+// @Success 200 {object} BangumiResponse
+// @Failure 400 {object} BangumiResponse
+// @Failure 500 {object} BangumiResponse
+// @Router /bangumi/year/{year} [get]
+func GetBangumiByYear(c *gin.Context) {
+	year := c.Param("year")
+	if year == "" {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "年份不能为空",
+		})
+		return
+	}
+
+	var params struct {
+		Page     int `form:"page"`
+		PageSize int `form:"page_size"`
+	}
+
+	if err := c.ShouldBindQuery(&params); err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的请求参数",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 设置默认分页参数
+	if params.Page <= 0 {
+		params.Page = 1
+	}
+	if params.PageSize <= 0 {
+		params.PageSize = 10
+	}
+
+	var bangumis []models.Bangumi
+	var total int64
+
+	// 构建查询
+	query := models.DB.Model(&models.Bangumi{}).Where("year = ?", year)
+
+	// 执行计数
+	if err := query.Count(&total).Error; err != nil {
+		utils.LogError("获取番剧总数失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取番剧列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 执行分页查询
+	offset := (params.Page - 1) * params.PageSize
+	if err := query.Offset(offset).Limit(params.PageSize).Find(&bangumis).Error; err != nil {
+		utils.LogError("获取番剧列表失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取番剧列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "获取番剧列表成功",
+		Data:    bangumis,
+		Total:   total,
+	})
+}
+
+// @Summary 获取所有番剧年份
+// @Description 获取数据库中所有番剧的年份列表，按年份降序排列
+// @Tags 番剧管理
+// @Produce json
+// @Success 200 {object} BangumiResponse
+// @Failure 500 {object} BangumiResponse
+// @Router /bangumi/years [get]
+func GetBangumiYears(c *gin.Context) {
+	var years []string
+
+	// 查询所有不重复的年份，并按降序排列
+	if err := models.DB.Model(&models.Bangumi{}).
+		Distinct("year").
+		Where("year IS NOT NULL AND year != ''").
+		Order("year DESC").
+		Pluck("year", &years).Error; err != nil {
+		utils.LogError("获取番剧年份列表失败", err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取番剧年份列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "获取番剧年份列表成功",
+		Data:    years,
+	})
+}
+
+// @Summary 删除番剧
+// @Description 根据ID删除指定的番剧（硬删除）
+// @Tags 番剧管理
+// @Produce json
+// @Param id path int true "番剧ID"
+// @Success 200 {object} BangumiResponse "删除成功"
+// @Failure 400 {object} BangumiResponse "无效的番剧ID"
+// @Failure 404 {object} BangumiResponse "番剧未找到"
+// @Failure 500 {object} BangumiResponse "服务器内部错误"
+// @Router /admin/bangumi/{id} [delete]
+func DeleteBangumi(c *gin.Context) {
+	idStr := c.Param("id")
+	bangumiID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的番剧ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 开始事务
+	tx := models.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 检查番剧是否存在
+	var bangumi models.Bangumi
+	if err := tx.First(&bangumi, uint(bangumiID)).Error; err != nil {
+		tx.Rollback()
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, BangumiResponse{
+				Code:    http.StatusNotFound,
+				Message: "番剧未找到",
+			})
+		} else {
+			utils.LogError(fmt.Sprintf("查找番剧[%d]失败", bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "删除番剧失败",
+				Error:   err.Error(),
+			})
+		}
+		return
+	}
+
+	// 删除相关的评分记录
+	if err := tx.Unscoped().Where("bangumi_id = ?", uint(bangumiID)).Delete(&models.BangumiRating{}).Error; err != nil {
+		tx.Rollback()
+		utils.LogError(fmt.Sprintf("删除番剧[%d]评分记录失败", bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "删除番剧评分记录失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 删除相关的收藏记录
+	if err := tx.Unscoped().Where("bangumi_id = ?", uint(bangumiID)).Delete(&models.BangumiFavorite{}).Error; err != nil {
+		tx.Rollback()
+		utils.LogError(fmt.Sprintf("删除番剧[%d]收藏记录失败", bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "删除番剧收藏记录失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 删除相关的RSS条目
+	if err := tx.Unscoped().Where("bangumi_id = ?", uint(bangumiID)).Delete(&models.RSSItem{}).Error; err != nil {
+		tx.Rollback()
+		utils.LogError(fmt.Sprintf("删除番剧[%d]RSS条目失败", bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "删除番剧RSS条目失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 硬删除番剧
+	if err := tx.Unscoped().Delete(&bangumi).Error; err != nil {
+		tx.Rollback()
+		utils.LogError(fmt.Sprintf("删除番剧[%d]失败", bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "删除番剧失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		utils.LogError(fmt.Sprintf("提交删除番剧[%d]事务失败", bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "删除番剧失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "删除番剧成功",
+	})
+}
+
+// @Summary 更新番剧信息
+// @Description 根据ID更新指定番剧的信息
+// @Tags 番剧管理
+// @Accept json
+// @Produce json
+// @Param id path int true "番剧ID"
+// @Param bangumi body models.BangumiUpdateRequest true "番剧更新信息"
+// @Success 200 {object} BangumiResponse "更新成功"
+// @Failure 400 {object} BangumiResponse "无效的请求参数"
+// @Failure 404 {object} BangumiResponse "番剧未找到"
+// @Failure 500 {object} BangumiResponse "服务器内部错误"
+// @Router /admin/bangumi/{id} [put]
+func UpdateBangumi(c *gin.Context) {
+	idStr := c.Param("id")
+	bangumiID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的番剧ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req models.BangumiUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, BangumiResponse{
+			Code:    http.StatusBadRequest,
+			Message: "无效的请求参数",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 检查番剧是否存在
+	var bangumi models.Bangumi
+	if err := models.DB.First(&bangumi, uint(bangumiID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, BangumiResponse{
+				Code:    http.StatusNotFound,
+				Message: "番剧未找到",
+			})
+		} else {
+			utils.LogError(fmt.Sprintf("查找番剧[%d]失败", bangumiID), err)
+			c.JSON(http.StatusInternalServerError, BangumiResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "更新番剧失败",
+				Error:   err.Error(),
+			})
+		}
+		return
+	}
+
+	// 更新番剧信息
+	updates := map[string]interface{}{}
+	if req.OfficialTitle != "" {
+		updates["official_title"] = req.OfficialTitle
+	}
+	if req.Year != nil {
+		updates["year"] = req.Year
+	}
+	if req.Season > 0 {
+		updates["season"] = req.Season
+	}
+	if req.PosterLink != nil {
+		updates["poster_link"] = req.PosterLink
+	}
+
+	if err := models.DB.Model(&bangumi).Updates(updates).Error; err != nil {
+		utils.LogError(fmt.Sprintf("更新番剧[%d]失败", bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "更新番剧失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 重新获取更新后的番剧信息
+	if err := models.DB.First(&bangumi, uint(bangumiID)).Error; err != nil {
+		utils.LogError(fmt.Sprintf("获取更新后的番剧[%d]信息失败", bangumiID), err)
+		c.JSON(http.StatusInternalServerError, BangumiResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "获取更新后的番剧信息失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, BangumiResponse{
+		Code:    http.StatusOK,
+		Message: "更新番剧成功",
+		Data:    bangumi,
 	})
 }

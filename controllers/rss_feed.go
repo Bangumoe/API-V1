@@ -47,6 +47,8 @@ func GetAllRSSFeeds(c *gin.Context) {
 			ParserType:     feed.ParserType,
 			CreatedAt:      feed.CreatedAt.Format("2006-01-02 15:04:05"),
 			UpdatedAt:      feed.UpdatedAt.Format("2006-01-02 15:04:05"),
+			PageStart:      feed.PageStart,
+			PageEnd:        feed.PageEnd,
 		}
 	}
 
@@ -85,6 +87,8 @@ func GetRSSFeedByID(c *gin.Context) {
 		ParserType:     feed.ParserType,
 		CreatedAt:      feed.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:      feed.UpdatedAt.Format("2006-01-02 15:04:05"),
+		PageStart:      feed.PageStart,
+		PageEnd:        feed.PageEnd,
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": http.StatusOK, "message": "获取RSS订阅源成功", "data": response})
@@ -128,6 +132,8 @@ func CreateRSSFeed(c *gin.Context) {
 		Keywords:       req.Keywords,
 		Priority:       req.Priority,
 		ParserType:     req.ParserType,
+		PageStart:      req.PageStart,
+		PageEnd:        req.PageEnd,
 	}
 
 	if err := models.DB.Create(&feed).Error; err != nil {
@@ -185,9 +191,11 @@ func UpdateRSSFeed(c *gin.Context) {
 	feed.Name = req.Name
 	feed.URL = req.URL
 	feed.UpdateInterval = req.UpdateInterval
-	feed.Keywords = req.Keywords // 确保这行正确赋值
+	feed.Keywords = req.Keywords
 	feed.Priority = req.Priority
 	feed.ParserType = req.ParserType
+	feed.PageStart = req.PageStart
+	feed.PageEnd = req.PageEnd
 
 	// 从数据库中重新查询以确保数据是最新的
 	if err := models.DB.Save(&feed).Error; err != nil {
@@ -199,7 +207,7 @@ func UpdateRSSFeed(c *gin.Context) {
 	// 重新从数据库获取完整的feed信息
 	var updatedFeed models.RSSFeed
 	if err := models.DB.First(&updatedFeed, id).Error; err != nil {
-		utils.LogError(fmt.Sprintf("获取更新后的RSS订阅源失败", id), err)
+		utils.LogError(fmt.Sprintf("获取更新后的RSS订阅源失败: %s", id), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": http.StatusInternalServerError, "message": "获取更新后的RSS订阅源失败", "error": err.Error()})
 		return
 	}
@@ -214,6 +222,8 @@ func UpdateRSSFeed(c *gin.Context) {
 		ParserType:     updatedFeed.ParserType,
 		CreatedAt:      updatedFeed.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:      updatedFeed.UpdatedAt.Format("2006-01-02 15:04:05"),
+		PageStart:      updatedFeed.PageStart,
+		PageEnd:        updatedFeed.PageEnd,
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": http.StatusOK, "message": "更新RSS订阅源成功", "data": response})
@@ -310,7 +320,7 @@ func DeleteRSSFeed(c *gin.Context) {
 		return
 	}
 
-	if err := models.DB.Delete(&feed).Error; err != nil {
+	if err := models.DB.Unscoped().Delete(&feed).Error; err != nil {
 		utils.LogError(fmt.Sprintf("删除ID为%s的RSS订阅源失败", id), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": http.StatusInternalServerError, "message": "删除RSS订阅源失败", "error": err.Error()})
 		return

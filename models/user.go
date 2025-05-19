@@ -16,20 +16,22 @@ const (
 
 // UserRequest 用于 Swagger 文档的用户请求模型
 type UserRequest struct {
-	Username string `json:"username" example:"user123" binding:"required" description:"用户名"`
-	Password string `json:"password" example:"password123" binding:"required" description:"用户密码"`
-	Email    string `json:"email" example:"user@example.com" binding:"required,email" description:"邮箱地址"`
-	Role     string `json:"role,omitempty" example:"regular" description:"用户角色"`
-	Avatar   string `json:"avatar" example:"/uploads/avatars/default.jpg" description:"头像路径"`
+	Username  string `json:"username" example:"user123" binding:"required" description:"用户名"`
+	Password  string `json:"password" example:"password123" binding:"required" description:"用户密码"`
+	Email     string `json:"email" example:"user@example.com" binding:"required,email" description:"邮箱地址"`
+	Role      string `json:"role,omitempty" example:"regular" description:"用户角色"`
+	Avatar    string `json:"avatar" example:"/uploads/avatars/default.jpg" description:"头像路径"`
+	IsAllowed bool   `json:"is_allowed" example:"false" description:"是否允许访问内测版本"`
 }
 
 // UserUpdateRequest 用于更新用户信息的请求模型
 type UserUpdateRequest struct {
-	Username string `json:"username" example:"user123" description:"用户名"`
-	Password string `json:"password" example:"password123" description:"用户密码"`
-	Email    string `json:"email" example:"user@example.com" description:"邮箱地址"`
-	Role     string `json:"role,omitempty" example:"regular" description:"用户角色"`
-	Avatar   string `json:"avatar" example:"/uploads/avatars/default.jpg" description:"头像路径"`
+	Username  string `json:"username" example:"user123" description:"用户名"`
+	Password  string `json:"password" example:"password123" description:"用户密码"`
+	Email     string `json:"email" example:"user@example.com" description:"邮箱地址"`
+	Role      string `json:"role,omitempty" example:"regular" description:"用户角色"`
+	Avatar    string `json:"avatar" example:"/uploads/avatars/default.jpg" description:"头像路径"`
+	IsAllowed bool   `json:"is_allowed" example:"false" description:"是否允许访问内测版本"`
 }
 
 // User 用户模型（数据库模型）
@@ -40,6 +42,7 @@ type User struct {
 	Email      string `json:"email" gorm:"type:varchar(100);uniqueIndex;not null"`
 	Role       string `json:"role" gorm:"type:varchar(20);default:'regular'"` // 添加角色字段
 	Avatar     string `json:"avatar" gorm:"type:varchar(255)"`                // 添加头像字段
+	IsAllowed  bool   `json:"is_allowed" gorm:"default:false"`                // 是否允许访问内测版本
 }
 
 func (u *User) HashPassword() error {
@@ -54,4 +57,12 @@ func (u *User) HashPassword() error {
 func (u *User) ComparePassword(password string) error {
 	fmt.Printf("正在比较密码 - 输入: %s, 存储: %s\n", password, u.Password)
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+}
+
+// BeforeSave 在保存用户之前自动设置管理员的IsAllowed为true
+func (u *User) BeforeSave(tx *gorm.DB) error {
+	if u.Role == RoleAdmin {
+		u.IsAllowed = true
+	}
+	return nil
 }

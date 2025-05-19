@@ -89,6 +89,598 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/bangumi/{id}": {
+            "put": {
+                "description": "根据ID更新指定番剧的信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧管理"
+                ],
+                "summary": "更新番剧信息",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "番剧ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "番剧更新信息",
+                        "name": "bangumi",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.BangumiUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的请求参数",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "番剧未找到",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "根据ID删除指定的番剧（硬删除）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧管理"
+                ],
+                "summary": "删除番剧",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "番剧ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的番剧ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "番剧未找到",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/beta/toggle": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "开启或关闭系统的内测模式（仅管理员可用）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "内测模式"
+                ],
+                "summary": "切换内测模式状态",
+                "parameters": [
+                    {
+                        "description": "请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回操作结果",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/beta/user-access": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "更新指定用户的内测版本访问权限（仅管理员可用）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "内测模式"
+                ],
+                "summary": "更新用户的内测访问权限",
+                "parameters": [
+                    {
+                        "description": "请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回操作结果",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/carousels": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "创建新的轮播图记录",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "carousel"
+                ],
+                "summary": "创建新的轮播图",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "轮播图标题",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "轮播图副标题",
+                        "name": "subtitle",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "轮播图详细描述",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "轮播图图片文件",
+                        "name": "image_file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "轮播图点击跳转链接",
+                        "name": "link",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "轮播图显示顺序",
+                        "name": "order",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "轮播图是否激活",
+                        "name": "is_active",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "轮播图开始显示时间",
+                        "name": "start_date",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "轮播图结束显示时间",
+                        "name": "end_date",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.CarouselResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/carousels/order": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "批量更新轮播图的显示顺序",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "carousel"
+                ],
+                "summary": "更新轮播图顺序",
+                "parameters": [
+                    {
+                        "description": "轮播图顺序数组",
+                        "name": "orders",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/controllers.CarouselOrderRequest"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/carousels/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "根据ID获取单个轮播图详情",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "carousel"
+                ],
+                "summary": "获取单个轮播图",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "轮播图ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.CarouselResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "更新指定ID的轮播图信息",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "carousel"
+                ],
+                "summary": "更新轮播图",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "轮播图ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "轮播图标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "轮播图副标题",
+                        "name": "subtitle",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "轮播图详细描述",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "轮播图图片文件",
+                        "name": "image_file",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "轮播图点击跳转链接",
+                        "name": "link",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "轮播图显示顺序",
+                        "name": "order",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "轮播图是否激活",
+                        "name": "is_active",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "轮播图开始显示时间",
+                        "name": "start_date",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "轮播图结束显示时间",
+                        "name": "end_date",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.CarouselResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "删除指定ID的轮播图",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "carousel"
+                ],
+                "summary": "删除轮播图",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "轮播图ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.SuccessResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/logs": {
             "get": {
                 "security": [
@@ -338,6 +930,12 @@ const docTemplate = `{
                         "in": "formData"
                     },
                     {
+                        "type": "string",
+                        "description": "是否允许访问",
+                        "name": "is_allowed",
+                        "in": "formData"
+                    },
+                    {
                         "type": "file",
                         "description": "头像文件",
                         "name": "avatar",
@@ -473,14 +1071,14 @@ const docTemplate = `{
         },
         "/bangumi/grouped_items/{id}": {
             "get": {
-                "description": "获取指定番剧ID的所有RSS条目，并按字幕组分类",
+                "description": "获取指定番剧ID的所有RSS条目，并按字幕组、分辨率、字幕类型分类。",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "番剧管理"
                 ],
-                "summary": "获取按字幕组分类的番剧RSS条目",
+                "summary": "获取按字幕组、分辨率、字幕类型分类的番剧RSS条目",
                 "parameters": [
                     {
                         "type": "integer",
@@ -492,19 +1090,34 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "成功获取分组RSS条目",
                         "schema": {
-                            "$ref": "#/definitions/controllers.BangumiResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.BangumiResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/controllers.GroupedByResolutionAndSub"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "番剧未找到",
                         "schema": {
                             "$ref": "#/definitions/controllers.BangumiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "服务器内部错误",
                         "schema": {
                             "$ref": "#/definitions/controllers.BangumiResponse"
                         }
@@ -697,6 +1310,245 @@ const docTemplate = `{
                 }
             }
         },
+        "/bangumi/stats/favorites": {
+            "get": {
+                "description": "获取番剧的收藏量统计信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧统计"
+                ],
+                "summary": "获取番剧收藏量统计",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bangumi/stats/rankings": {
+            "get": {
+                "description": "获取番剧的综合排名（基于点击量、收藏量和评分的加权计算）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧统计"
+                ],
+                "summary": "获取番剧综合排名",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bangumi/stats/ratings": {
+            "get": {
+                "description": "获取番剧的评分统计信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧统计"
+                ],
+                "summary": "获取番剧评分统计",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bangumi/stats/views": {
+            "get": {
+                "description": "获取番剧的点击量统计信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧统计"
+                ],
+                "summary": "获取番剧点击量统计",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bangumi/year/{year}": {
+            "get": {
+                "description": "获取指定年份的所有番剧，支持分页",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧管理"
+                ],
+                "summary": "根据年份获取番剧列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "年份",
+                        "name": "year",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bangumi/years": {
+            "get": {
+                "description": "获取数据库中所有番剧的年份列表，按年份降序排列",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧管理"
+                ],
+                "summary": "获取所有番剧年份",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bangumi/{id}": {
             "get": {
                 "description": "通过ID获取特定番剧的详细信息",
@@ -731,6 +1583,64 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bangumi/{id}/favorite": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "用户收藏或取消收藏指定ID的番剧",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧统计"
+                ],
+                "summary": "收藏/取消收藏番剧",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "番剧ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "操作成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的番剧ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "用户未认证",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "番剧未找到",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
                         "schema": {
                             "$ref": "#/definitions/controllers.BangumiResponse"
                         }
@@ -788,6 +1698,396 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bangumi/{id}/rating": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取当前登录用户对指定ID番剧的评分信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧统计"
+                ],
+                "summary": "获取用户对番剧的评分",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "番剧ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取评分成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.BangumiResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.BangumiRatingResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "无效的番剧ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "用户未认证",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "未找到评分记录或番剧",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "用户为指定ID的番剧添加或更新评分",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧统计"
+                ],
+                "summary": "添加或更新番剧评分",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "番剧ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "评分信息",
+                        "name": "rating",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.BangumiRatingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "操作成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/controllers.BangumiResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.BangumiRatingResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "无效的请求参数或番剧ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "用户未认证",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "番剧未找到",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除当前登录用户对指定ID番剧的评分",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧统计"
+                ],
+                "summary": "删除用户对番剧的评分",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "番剧ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除评分成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的番剧ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "用户未认证",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "未找到评分记录或番剧",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bangumi/{id}/rating_stats": {
+            "get": {
+                "description": "获取指定番剧的评分分布和详细统计信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧统计"
+                ],
+                "summary": "获取指定番剧的评分详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "番剧ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bangumi/{id}/stats": {
+            "get": {
+                "description": "获取指定番剧的点击量、收藏量和评分统计信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧统计"
+                ],
+                "summary": "获取指定番剧的统计信息",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "番剧ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bangumi/{id}/view": {
+            "post": {
+                "description": "为指定ID的番剧增加一次点击量",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "番剧统计"
+                ],
+                "summary": "增加番剧点击量",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "番剧ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "点击量增加成功",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的番剧ID",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "番剧未找到",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BangumiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/beta/status": {
+            "get": {
+                "description": "获取当前系统的内测模式状态",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "内测模式"
+                ],
+                "summary": "获取内测模式状态",
+                "responses": {
+                    "200": {
+                        "description": "返回内测模式状态",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/carousels": {
+            "get": {
+                "description": "获取所有轮播图列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "carousel"
+                ],
+                "summary": "获取所有轮播图",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.CarouselResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
                         }
                     }
                 }
@@ -1276,6 +2576,62 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.CarouselOrderRequest": {
+            "description": "更新轮播图顺序的请求参数",
+            "type": "object",
+            "required": [
+                "id",
+                "order"
+            ],
+            "properties": {
+                "id": {
+                    "description": "@Description 轮播图ID",
+                    "type": "integer"
+                },
+                "order": {
+                    "description": "@Description 轮播图顺序",
+                    "type": "integer"
+                }
+            }
+        },
+        "controllers.EpisodeInfo": {
+            "type": "object",
+            "properties": {
+                "episode": {
+                    "type": "number"
+                },
+                "release_date": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.ErrorResponse": {
+            "description": "错误响应",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "@Description 错误信息",
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.GroupedByResolutionAndSub": {
+            "type": "object",
+            "properties": {
+                "group_name": {
+                    "type": "string"
+                },
+                "resolutions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.ResolutionGroupedSubs"
+                    }
+                }
+            }
+        },
         "controllers.LogResponse": {
             "type": "object",
             "properties": {
@@ -1340,6 +2696,20 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.ResolutionGroupedSubs": {
+            "type": "object",
+            "properties": {
+                "resolution_name": {
+                    "type": "string"
+                },
+                "sub_groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.SubGroupedEpisodes"
+                    }
+                }
+            }
+        },
         "controllers.Response": {
             "type": "object",
             "properties": {
@@ -1348,6 +2718,30 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.SubGroupedEpisodes": {
+            "type": "object",
+            "properties": {
+                "episodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/controllers.EpisodeInfo"
+                    }
+                },
+                "sub_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "controllers.SuccessResponse": {
+            "description": "成功响应",
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "@Description 成功信息",
                     "type": "string"
                 }
             }
@@ -1386,6 +2780,119 @@ const docTemplate = `{
                 }
             }
         },
+        "models.BangumiRatingRequest": {
+            "type": "object",
+            "required": [
+                "score"
+            ],
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "number",
+                    "maximum": 10,
+                    "minimum": 0
+                }
+            }
+        },
+        "models.BangumiRatingResponse": {
+            "type": "object",
+            "properties": {
+                "bangumi_id": {
+                    "type": "integer"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "score": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.BangumiUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "official_title": {
+                    "type": "string"
+                },
+                "poster_link": {
+                    "type": "string"
+                },
+                "season": {
+                    "type": "integer"
+                },
+                "year": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CarouselResponse": {
+            "description": "轮播图响应数据",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "@Description 创建时间",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "@Description 轮播图详细描述",
+                    "type": "string"
+                },
+                "end_date": {
+                    "description": "@Description 轮播图结束显示时间",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "@Description 轮播图ID",
+                    "type": "integer"
+                },
+                "image_url": {
+                    "description": "@Description 轮播图图片URL",
+                    "type": "string"
+                },
+                "is_active": {
+                    "description": "@Description 轮播图是否激活",
+                    "type": "boolean"
+                },
+                "link": {
+                    "description": "@Description 轮播图点击跳转链接",
+                    "type": "string"
+                },
+                "order": {
+                    "description": "@Description 轮播图显示顺序",
+                    "type": "integer"
+                },
+                "start_date": {
+                    "description": "@Description 轮播图开始显示时间",
+                    "type": "string"
+                },
+                "subtitle": {
+                    "description": "@Description 轮播图副标题",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "@Description 轮播图标题",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "@Description 更新时间",
+                    "type": "string"
+                }
+            }
+        },
         "models.RSSFeedRequest": {
             "type": "object",
             "required": [
@@ -1402,6 +2909,14 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "莉可丽丝"
+                },
+                "page_end": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "page_start": {
+                    "type": "integer",
+                    "example": 1
                 },
                 "parser_type": {
                     "type": "string",
@@ -1435,6 +2950,12 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "page_end": {
+                    "type": "integer"
+                },
+                "page_start": {
+                    "type": "integer"
                 },
                 "parser_type": {
                     "type": "string"

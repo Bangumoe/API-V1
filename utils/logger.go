@@ -76,6 +76,20 @@ func LogInfo(message string) {
 	BroadcastLog(logMessage)
 }
 
+// LogWarning 记录警告信息
+func LogWarning(message string, err error) {
+	if logger == nil {
+		InitLogger()
+	}
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	warnMsg := fmt.Sprintf("[%s] [WARNING] %s", timestamp, message)
+	if err != nil {
+		warnMsg += fmt.Sprintf(": %v", err)
+	}
+	logger.Println(warnMsg)
+	BroadcastLog(warnMsg)
+}
+
 // checkLogRotation 检查并执行日志轮转
 func checkLogRotation() {
 	for {

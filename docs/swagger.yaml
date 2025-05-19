@@ -12,6 +12,44 @@ definitions:
       total:
         type: integer
     type: object
+  controllers.CarouselOrderRequest:
+    description: 更新轮播图顺序的请求参数
+    properties:
+      id:
+        description: '@Description 轮播图ID'
+        type: integer
+      order:
+        description: '@Description 轮播图顺序'
+        type: integer
+    required:
+    - id
+    - order
+    type: object
+  controllers.EpisodeInfo:
+    properties:
+      episode:
+        type: number
+      release_date:
+        type: string
+      url:
+        type: string
+    type: object
+  controllers.ErrorResponse:
+    description: 错误响应
+    properties:
+      error:
+        description: '@Description 错误信息'
+        type: string
+    type: object
+  controllers.GroupedByResolutionAndSub:
+    properties:
+      group_name:
+        type: string
+      resolutions:
+        items:
+          $ref: '#/definitions/controllers.ResolutionGroupedSubs'
+        type: array
+    type: object
   controllers.LogResponse:
     properties:
       code:
@@ -56,12 +94,37 @@ definitions:
       message:
         type: string
     type: object
+  controllers.ResolutionGroupedSubs:
+    properties:
+      resolution_name:
+        type: string
+      sub_groups:
+        items:
+          $ref: '#/definitions/controllers.SubGroupedEpisodes'
+        type: array
+    type: object
   controllers.Response:
     properties:
       data: {}
       error:
         type: string
       message:
+        type: string
+    type: object
+  controllers.SubGroupedEpisodes:
+    properties:
+      episodes:
+        items:
+          $ref: '#/definitions/controllers.EpisodeInfo'
+        type: array
+      sub_type:
+        type: string
+    type: object
+  controllers.SuccessResponse:
+    description: 成功响应
+    properties:
+      message:
+        description: '@Description 成功信息'
         type: string
     type: object
   controllers.SystemStatsResponse:
@@ -88,6 +151,85 @@ definitions:
         example: user
         type: string
     type: object
+  models.BangumiRatingRequest:
+    properties:
+      comment:
+        type: string
+      score:
+        maximum: 10
+        minimum: 0
+        type: number
+    required:
+    - score
+    type: object
+  models.BangumiRatingResponse:
+    properties:
+      bangumi_id:
+        type: integer
+      comment:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      score:
+        type: number
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  models.BangumiUpdateRequest:
+    properties:
+      official_title:
+        type: string
+      poster_link:
+        type: string
+      season:
+        type: integer
+      year:
+        type: string
+    type: object
+  models.CarouselResponse:
+    description: 轮播图响应数据
+    properties:
+      created_at:
+        description: '@Description 创建时间'
+        type: string
+      description:
+        description: '@Description 轮播图详细描述'
+        type: string
+      end_date:
+        description: '@Description 轮播图结束显示时间'
+        type: string
+      id:
+        description: '@Description 轮播图ID'
+        type: integer
+      image_url:
+        description: '@Description 轮播图图片URL'
+        type: string
+      is_active:
+        description: '@Description 轮播图是否激活'
+        type: boolean
+      link:
+        description: '@Description 轮播图点击跳转链接'
+        type: string
+      order:
+        description: '@Description 轮播图显示顺序'
+        type: integer
+      start_date:
+        description: '@Description 轮播图开始显示时间'
+        type: string
+      subtitle:
+        description: '@Description 轮播图副标题'
+        type: string
+      title:
+        description: '@Description 轮播图标题'
+        type: string
+      updated_at:
+        description: '@Description 更新时间'
+        type: string
+    type: object
   models.RSSFeedRequest:
     properties:
       keywords:
@@ -96,6 +238,12 @@ definitions:
       name:
         example: 莉可丽丝
         type: string
+      page_end:
+        example: 5
+        type: integer
+      page_start:
+        example: 1
+        type: integer
       parser_type:
         example: mikanani
         type: string
@@ -124,6 +272,10 @@ definitions:
         type: string
       name:
         type: string
+      page_end:
+        type: integer
+      page_start:
+        type: integer
       parser_type:
         type: string
       priority:
@@ -188,6 +340,389 @@ paths:
       summary: 获取最近活动记录
       tags:
       - 系统管理
+  /admin/bangumi/{id}:
+    delete:
+      description: 根据ID删除指定的番剧（硬删除）
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "400":
+          description: 无效的番剧ID
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: 番剧未找到
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 删除番剧
+      tags:
+      - 番剧管理
+    put:
+      consumes:
+      - application/json
+      description: 根据ID更新指定番剧的信息
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 番剧更新信息
+        in: body
+        name: bangumi
+        required: true
+        schema:
+          $ref: '#/definitions/models.BangumiUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "400":
+          description: 无效的请求参数
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: 番剧未找到
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 更新番剧信息
+      tags:
+      - 番剧管理
+  /admin/beta/toggle:
+    post:
+      consumes:
+      - application/json
+      description: 开启或关闭系统的内测模式（仅管理员可用）
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回操作结果
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 切换内测模式状态
+      tags:
+      - 内测模式
+  /admin/beta/user-access:
+    post:
+      consumes:
+      - application/json
+      description: 更新指定用户的内测版本访问权限（仅管理员可用）
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回操作结果
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 更新用户的内测访问权限
+      tags:
+      - 内测模式
+  /admin/carousels:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 创建新的轮播图记录
+      parameters:
+      - description: 轮播图标题
+        in: formData
+        name: title
+        required: true
+        type: string
+      - description: 轮播图副标题
+        in: formData
+        name: subtitle
+        type: string
+      - description: 轮播图详细描述
+        in: formData
+        name: description
+        type: string
+      - description: 轮播图图片文件
+        in: formData
+        name: image_file
+        required: true
+        type: file
+      - description: 轮播图点击跳转链接
+        in: formData
+        name: link
+        type: string
+      - description: 轮播图显示顺序
+        in: formData
+        name: order
+        type: integer
+      - description: 轮播图是否激活
+        in: formData
+        name: is_active
+        type: boolean
+      - description: 轮播图开始显示时间
+        in: formData
+        name: start_date
+        type: string
+      - description: 轮播图结束显示时间
+        in: formData
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.CarouselResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: 创建新的轮播图
+      tags:
+      - carousel
+  /admin/carousels/{id}:
+    delete:
+      description: 删除指定ID的轮播图
+      parameters:
+      - description: 轮播图ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.SuccessResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: 删除轮播图
+      tags:
+      - carousel
+    get:
+      description: 根据ID获取单个轮播图详情
+      parameters:
+      - description: 轮播图ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CarouselResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: 获取单个轮播图
+      tags:
+      - carousel
+    put:
+      consumes:
+      - multipart/form-data
+      description: 更新指定ID的轮播图信息
+      parameters:
+      - description: 轮播图ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 轮播图标题
+        in: formData
+        name: title
+        type: string
+      - description: 轮播图副标题
+        in: formData
+        name: subtitle
+        type: string
+      - description: 轮播图详细描述
+        in: formData
+        name: description
+        type: string
+      - description: 轮播图图片文件
+        in: formData
+        name: image_file
+        type: file
+      - description: 轮播图点击跳转链接
+        in: formData
+        name: link
+        type: string
+      - description: 轮播图显示顺序
+        in: formData
+        name: order
+        type: integer
+      - description: 轮播图是否激活
+        in: formData
+        name: is_active
+        type: boolean
+      - description: 轮播图开始显示时间
+        in: formData
+        name: start_date
+        type: string
+      - description: 轮播图结束显示时间
+        in: formData
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CarouselResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: 更新轮播图
+      tags:
+      - carousel
+  /admin/carousels/order:
+    put:
+      consumes:
+      - application/json
+      description: 批量更新轮播图的显示顺序
+      parameters:
+      - description: 轮播图顺序数组
+        in: body
+        name: orders
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/controllers.CarouselOrderRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: 更新轮播图顺序
+      tags:
+      - carousel
   /admin/logs:
     get:
       consumes:
@@ -375,6 +910,10 @@ paths:
         in: formData
         name: role
         type: string
+      - description: 是否允许访问
+        in: formData
+        name: is_allowed
+        type: string
       - description: 头像文件
         in: formData
         name: avatar
@@ -460,6 +999,43 @@ paths:
       summary: 获取番剧详情
       tags:
       - 番剧管理
+  /bangumi/{id}/favorite:
+    post:
+      description: 用户收藏或取消收藏指定ID的番剧
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 操作成功
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "400":
+          description: 无效的番剧ID
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "401":
+          description: 用户未认证
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: 番剧未找到
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: 收藏/取消收藏番剧
+      tags:
+      - 番剧统计
   /bangumi/{id}/group_episode:
     get:
       description: 获取指定番剧的特定字幕组的特定集数的详细信息
@@ -497,9 +1073,136 @@ paths:
       summary: 获取特定字幕组的特定集数信息
       tags:
       - 番剧管理
-  /bangumi/grouped_items/{id}:
+  /bangumi/{id}/rating:
+    delete:
+      description: 删除当前登录用户对指定ID番剧的评分
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除评分成功
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "400":
+          description: 无效的番剧ID
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "401":
+          description: 用户未认证
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: 未找到评分记录或番剧
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: 删除用户对番剧的评分
+      tags:
+      - 番剧统计
     get:
-      description: 获取指定番剧ID的所有RSS条目，并按字幕组分类
+      description: 获取当前登录用户对指定ID番剧的评分信息
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取评分成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.BangumiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.BangumiRatingResponse'
+              type: object
+        "400":
+          description: 无效的番剧ID
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "401":
+          description: 用户未认证
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: 未找到评分记录或番剧
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: 获取用户对番剧的评分
+      tags:
+      - 番剧统计
+    post:
+      consumes:
+      - application/json
+      description: 用户为指定ID的番剧添加或更新评分
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 评分信息
+        in: body
+        name: rating
+        required: true
+        schema:
+          $ref: '#/definitions/models.BangumiRatingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 操作成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.BangumiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.BangumiRatingResponse'
+              type: object
+        "400":
+          description: 无效的请求参数或番剧ID
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "401":
+          description: 用户未认证
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: 番剧未找到
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: 添加或更新番剧评分
+      tags:
+      - 番剧统计
+  /bangumi/{id}/rating_stats:
+    get:
+      description: 获取指定番剧的评分分布和详细统计信息
       parameters:
       - description: 番剧ID
         in: path
@@ -521,7 +1224,99 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controllers.BangumiResponse'
-      summary: 获取按字幕组分类的番剧RSS条目
+      summary: 获取指定番剧的评分详情
+      tags:
+      - 番剧统计
+  /bangumi/{id}/stats:
+    get:
+      description: 获取指定番剧的点击量、收藏量和评分统计信息
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取指定番剧的统计信息
+      tags:
+      - 番剧统计
+  /bangumi/{id}/view:
+    post:
+      description: 为指定ID的番剧增加一次点击量
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 点击量增加成功
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "400":
+          description: 无效的番剧ID
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "404":
+          description: 番剧未找到
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 增加番剧点击量
+      tags:
+      - 番剧统计
+  /bangumi/grouped_items/{id}:
+    get:
+      description: 获取指定番剧ID的所有RSS条目，并按字幕组、分辨率、字幕类型分类。
+      parameters:
+      - description: 番剧ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功获取分组RSS条目
+          schema:
+            allOf:
+            - $ref: '#/definitions/controllers.BangumiResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/controllers.GroupedByResolutionAndSub'
+                  type: array
+              type: object
+        "404":
+          description: 番剧未找到
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取按字幕组、分辨率、字幕类型分类的番剧RSS条目
       tags:
       - 番剧管理
   /bangumi/items/{id}:
@@ -646,6 +1441,198 @@ paths:
       summary: 获取番剧统计信息
       tags:
       - 番剧管理
+  /bangumi/stats/favorites:
+    get:
+      description: 获取番剧的收藏量统计信息
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取番剧收藏量统计
+      tags:
+      - 番剧统计
+  /bangumi/stats/rankings:
+    get:
+      description: 获取番剧的综合排名（基于点击量、收藏量和评分的加权计算）
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取番剧综合排名
+      tags:
+      - 番剧统计
+  /bangumi/stats/ratings:
+    get:
+      description: 获取番剧的评分统计信息
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取番剧评分统计
+      tags:
+      - 番剧统计
+  /bangumi/stats/views:
+    get:
+      description: 获取番剧的点击量统计信息
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取番剧点击量统计
+      tags:
+      - 番剧统计
+  /bangumi/year/{year}:
+    get:
+      description: 获取指定年份的所有番剧，支持分页
+      parameters:
+      - description: 年份
+        in: path
+        name: year
+        required: true
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 根据年份获取番剧列表
+      tags:
+      - 番剧管理
+  /bangumi/years:
+    get:
+      description: 获取数据库中所有番剧的年份列表，按年份降序排列
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      summary: 获取所有番剧年份
+      tags:
+      - 番剧管理
+  /beta/status:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前系统的内测模式状态
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回内测模式状态
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: 获取内测模式状态
+      tags:
+      - 内测模式
+  /carousels:
+    get:
+      description: 获取所有轮播图列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.CarouselResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取所有轮播图
+      tags:
+      - carousel
   /login:
     post:
       consumes:

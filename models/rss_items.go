@@ -17,6 +17,7 @@ type RSSItem struct {
 	Source      string   `json:"source,omitempty" gorm:"type:varchar(100)" description:"来源"`
 	Group       string   `json:"group,omitempty" gorm:"type:varchar(100)" description:"字幕组"`
 	ReleaseDate string   `json:"release_date,omitempty" gorm:"type:varchar(50)" description:"发布日期"`
+	Sub         string   `json:"sub,omitempty" gorm:"type:varchar(50)" description:"字幕"`
 
 	// 更新外键配置
 	RssFeed RSSFeed `gorm:"foreignKey:RssID;references:ID"`

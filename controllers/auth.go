@@ -224,6 +224,7 @@ func (ac *AuthController) GetUserInfo(c *gin.Context) {
 			"email":      user.Email,
 			"role":       user.Role,
 			"avatar":     user.Avatar,
+			"is_allowed": user.IsAllowed,
 			"created_at": user.CreatedAt,
 			"updated_at": user.UpdatedAt,
 		},

@@ -27,9 +27,13 @@ var (
 	titleRE      = regexp.MustCompile(`(.*|\[.*])( -? \d+|\[\d+]|\[\d+.?[vV]\d]|第\d+[话話集]|\[第?\d+[话話集]]|\[\d+.?END]|[Ee][Pp]?\d+)(.*)`)
 	resolutionRE = regexp.MustCompile(`1080|720|2160|4K`)
 	sourceRE     = regexp.MustCompile(`B-Global|[Bb]aha|[Bb]ilibili|AT-X|Web`)
-	subRE        = regexp.MustCompile(`[简繁日字幕]|CH|BIG5|GB`)
+	subRE        = regexp.MustCompile(`[简繁日字幕]|CH|BIG5|GB|CHS|CHT|JP|ENG|简中|繁中|中字`) // Expanded for general fallback
 	prefixRE     = regexp.MustCompile(`[^\w\s\p{Han}\p{Hiragana}\p{Katakana}-]`)
 )
+
+// selectionPrioritySubKeywords defines the order of preference for selecting Chinese subtitle tags.
+// Higher priority (lower index) keywords are preferred.
+var selectionPrioritySubKeywords = []string{"简体", "简日", "简", "CHS", "GB", "简日繁", "简中", "bibili", "Bilibili"}
 
 // 中文数字映射
 var chineseNumberMap = map[string]int{
@@ -228,26 +232,64 @@ func nameProcess(name string) (string, string, string) {
 
 // findTags 查找标签信息（字幕、分辨率、来源）
 func findTags(other string) (string, string, string) {
-	// 替换括号为空格并分割
 	elements := strings.Split(regexp.MustCompile(`[\[\]()（）]`).ReplaceAllString(other, " "), " ")
 
 	var sub, resolution, source string
+	var bestSubMatch string
+	highestPriority := -1 // Lower index in selectionPrioritySubKeywords means higher priority
 
-	// 遍历元素，识别不同类型的标签
+	// First pass: check for prioritized Chinese subs based on selectionPrioritySubKeywords
 	for _, element := range elements {
+		element = strings.TrimSpace(element)
 		if element == "" {
 			continue
 		}
-
-		if subRE.MatchString(element) {
-			sub = element
-		} else if resolutionRE.MatchString(element) {
+		for i, keyword := range selectionPrioritySubKeywords {
+			// Check if the element (which is a potential tag) contains the keyword.
+			// This allows matching for elements like "CHS字幕" with keyword "CHS".
+			if strings.Contains(element, keyword) {
+				if highestPriority == -1 || i < highestPriority {
+					bestSubMatch = keyword // Assign the keyword itself as the sub tag
+					highestPriority = i
+				}
+			}
+		}
+		// Concurrently check for resolution and source from the same element
+		if resolutionRE.MatchString(element) {
 			resolution = element
 		} else if sourceRE.MatchString(element) {
 			source = element
 		}
 	}
 
+	// Second pass: if no prioritized Chinese sub was found, check for any other sub using the general subRE
+	if bestSubMatch == "" {
+		for _, element := range elements {
+			element = strings.TrimSpace(element)
+			if element == "" {
+				continue
+			}
+			// Check if this element is a general subtitle tag according to subRE
+			if subRE.MatchString(element) {
+				// Ensure it's not one of the selectionPrioritySubKeywords that might have been missed
+				// or to prevent complex interactions if subRE is broad.
+				isAlreadyPrioritizedCandidate := false
+				for _, prioKeyword := range selectionPrioritySubKeywords {
+					if strings.Contains(element, prioKeyword) {
+						isAlreadyPrioritizedCandidate = true
+						break
+					}
+				}
+				if !isAlreadyPrioritizedCandidate {
+					// Use the element itself if it matches subRE, as subRE is designed to match whole tags.
+					bestSubMatch = element
+					break // Found a general sub, stop this loop
+				}
+			}
+		}
+	}
+
+	sub = bestSubMatch
 	return cleanSub(sub), resolution, source
 }
 
