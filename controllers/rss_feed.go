@@ -13,6 +13,9 @@ import (
 )
 
 // RSSResponse 定义通用响应结构
+// 增加 exclude_keywords 字段
+// @Description RSS订阅源响应结构
+// @Param exclude_keywords string false "排除关键词，多个用逗号分隔"
 type RSSResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
@@ -38,17 +41,18 @@ func GetAllRSSFeeds(c *gin.Context) {
 	response := make([]models.RSSFeedResponse, len(feeds))
 	for i, feed := range feeds {
 		response[i] = models.RSSFeedResponse{
-			ID:             feed.ID,
-			Name:           feed.Name,
-			URL:            feed.URL,
-			UpdateInterval: feed.UpdateInterval,
-			Keywords:       feed.Keywords,
-			Priority:       feed.Priority,
-			ParserType:     feed.ParserType,
-			CreatedAt:      feed.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:      feed.UpdatedAt.Format("2006-01-02 15:04:05"),
-			PageStart:      feed.PageStart,
-			PageEnd:        feed.PageEnd,
+			ID:              feed.ID,
+			Name:            feed.Name,
+			URL:             feed.URL,
+			UpdateInterval:  feed.UpdateInterval,
+			Keywords:        feed.Keywords,
+			Priority:        feed.Priority,
+			ParserType:      feed.ParserType,
+			CreatedAt:       feed.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:       feed.UpdatedAt.Format("2006-01-02 15:04:05"),
+			PageStart:       feed.PageStart,
+			PageEnd:         feed.PageEnd,
+			ExcludeKeywords: feed.ExcludeKeywords,
 		}
 	}
 
@@ -78,17 +82,18 @@ func GetRSSFeedByID(c *gin.Context) {
 	}
 
 	response := models.RSSFeedResponse{
-		ID:             feed.ID,
-		Name:           feed.Name,
-		URL:            feed.URL,
-		UpdateInterval: feed.UpdateInterval,
-		Keywords:       feed.Keywords,
-		Priority:       feed.Priority,
-		ParserType:     feed.ParserType,
-		CreatedAt:      feed.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:      feed.UpdatedAt.Format("2006-01-02 15:04:05"),
-		PageStart:      feed.PageStart,
-		PageEnd:        feed.PageEnd,
+		ID:              feed.ID,
+		Name:            feed.Name,
+		URL:             feed.URL,
+		UpdateInterval:  feed.UpdateInterval,
+		Keywords:        feed.Keywords,
+		Priority:        feed.Priority,
+		ParserType:      feed.ParserType,
+		CreatedAt:       feed.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:       feed.UpdatedAt.Format("2006-01-02 15:04:05"),
+		PageStart:       feed.PageStart,
+		PageEnd:         feed.PageEnd,
+		ExcludeKeywords: feed.ExcludeKeywords,
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": http.StatusOK, "message": "获取RSS订阅源成功", "data": response})
@@ -126,14 +131,15 @@ func CreateRSSFeed(c *gin.Context) {
 	}
 
 	feed := models.RSSFeed{
-		Name:           req.Name,
-		URL:            req.URL,
-		UpdateInterval: req.UpdateInterval,
-		Keywords:       req.Keywords,
-		Priority:       req.Priority,
-		ParserType:     req.ParserType,
-		PageStart:      req.PageStart,
-		PageEnd:        req.PageEnd,
+		Name:            req.Name,
+		URL:             req.URL,
+		UpdateInterval:  req.UpdateInterval,
+		Keywords:        req.Keywords,
+		Priority:        req.Priority,
+		ParserType:      req.ParserType,
+		PageStart:       req.PageStart,
+		PageEnd:         req.PageEnd,
+		ExcludeKeywords: req.ExcludeKeywords,
 	}
 
 	if err := models.DB.Create(&feed).Error; err != nil {
@@ -143,15 +149,18 @@ func CreateRSSFeed(c *gin.Context) {
 	}
 
 	response := models.RSSFeedResponse{
-		ID:             feed.ID,
-		Name:           feed.Name,
-		URL:            feed.URL,
-		UpdateInterval: feed.UpdateInterval,
-		Keywords:       feed.Keywords,
-		Priority:       feed.Priority,
-		ParserType:     feed.ParserType,
-		CreatedAt:      feed.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:      feed.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ID:              feed.ID,
+		Name:            feed.Name,
+		URL:             feed.URL,
+		UpdateInterval:  feed.UpdateInterval,
+		Keywords:        feed.Keywords,
+		Priority:        feed.Priority,
+		ParserType:      feed.ParserType,
+		CreatedAt:       feed.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:       feed.UpdatedAt.Format("2006-01-02 15:04:05"),
+		PageStart:       feed.PageStart,
+		PageEnd:         feed.PageEnd,
+		ExcludeKeywords: feed.ExcludeKeywords,
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"code": http.StatusCreated, "message": "创建RSS订阅源成功", "data": response})
@@ -196,6 +205,7 @@ func UpdateRSSFeed(c *gin.Context) {
 	feed.ParserType = req.ParserType
 	feed.PageStart = req.PageStart
 	feed.PageEnd = req.PageEnd
+	feed.ExcludeKeywords = req.ExcludeKeywords
 
 	// 从数据库中重新查询以确保数据是最新的
 	if err := models.DB.Save(&feed).Error; err != nil {
@@ -213,17 +223,18 @@ func UpdateRSSFeed(c *gin.Context) {
 	}
 
 	response := models.RSSFeedResponse{
-		ID:             updatedFeed.ID,
-		Name:           updatedFeed.Name,
-		URL:            updatedFeed.URL,
-		UpdateInterval: updatedFeed.UpdateInterval,
-		Keywords:       updatedFeed.Keywords,
-		Priority:       updatedFeed.Priority,
-		ParserType:     updatedFeed.ParserType,
-		CreatedAt:      updatedFeed.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:      updatedFeed.UpdatedAt.Format("2006-01-02 15:04:05"),
-		PageStart:      updatedFeed.PageStart,
-		PageEnd:        updatedFeed.PageEnd,
+		ID:              updatedFeed.ID,
+		Name:            updatedFeed.Name,
+		URL:             updatedFeed.URL,
+		UpdateInterval:  updatedFeed.UpdateInterval,
+		Keywords:        updatedFeed.Keywords,
+		Priority:        updatedFeed.Priority,
+		ParserType:      updatedFeed.ParserType,
+		CreatedAt:       updatedFeed.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:       updatedFeed.UpdatedAt.Format("2006-01-02 15:04:05"),
+		PageStart:       updatedFeed.PageStart,
+		PageEnd:         updatedFeed.PageEnd,
+		ExcludeKeywords: updatedFeed.ExcludeKeywords,
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": http.StatusOK, "message": "更新RSS订阅源成功", "data": response})

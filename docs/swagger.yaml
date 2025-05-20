@@ -41,6 +41,39 @@ definitions:
         description: '@Description 错误信息'
         type: string
     type: object
+  controllers.GlobalSettingsResponse:
+    properties:
+      created_at:
+        example: "2024-05-20T12:00:00Z"
+        type: string
+      exclude_keywords:
+        example: 预告,PV
+        type: string
+      global_keywords:
+        example: 动画,动漫
+        type: string
+      id:
+        example: 1
+        type: integer
+      sub_group_blacklist:
+        example: 字幕组1,字幕组2
+        type: string
+      updated_at:
+        example: "2024-05-20T12:00:00Z"
+        type: string
+    type: object
+  controllers.GlobalSettingsUpdateRequest:
+    properties:
+      exclude_keywords:
+        example: 预告,PV
+        type: string
+      global_keywords:
+        example: 动画,动漫
+        type: string
+      sub_group_blacklist:
+        example: 字幕组1,字幕组2
+        type: string
+    type: object
   controllers.GroupedByResolutionAndSub:
     properties:
       group_name:
@@ -85,6 +118,7 @@ definitions:
         type: string
     type: object
   controllers.RSSResponse:
+    description: RSS订阅源响应结构
     properties:
       code:
         type: integer
@@ -232,6 +266,9 @@ definitions:
     type: object
   models.RSSFeedRequest:
     properties:
+      exclude_keywords:
+        example: 预告,PV
+        type: string
       keywords:
         example: 莉可丽丝,友谊是时间的窃贼
         type: string
@@ -266,6 +303,8 @@ definitions:
     properties:
       created_at:
         type: string
+      exclude_keywords:
+        type: string
       id:
         type: integer
       keywords:
@@ -295,11 +334,11 @@ info:
     url: http://www.swagger.io/support
   description: 这是一个动画网站的后端API服务
   license:
-    name: Apache 2.0
-    url: http://www.apache.org/licenses/LICENSE-2.0.html
+    name: MIT
+    url: https://opensource.org/licenses/MIT
   termsOfService: http://swagger.io/terms/
   title: 动画网站 API
-  version: "1.0"
+  version: 1.2.0
 paths:
   /activities:
     get:
@@ -764,6 +803,52 @@ paths:
       summary: 实时监控系统日志
       tags:
       - 系统管理
+  /admin/settings:
+    get:
+      description: 获取全局关键词、排除关键词和字幕组黑名单设置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.GlobalSettingsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 获取全局设置
+      tags:
+      - 全局设置
+    put:
+      consumes:
+      - application/json
+      description: 更新全局关键词、排除关键词和字幕组黑名单设置
+      parameters:
+      - description: 全局设置
+        in: body
+        name: settings
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.GlobalSettingsUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.GlobalSettingsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      summary: 更新全局设置
+      tags:
+      - 全局设置
   /admin/stats:
     get:
       description: 获取系统中的番剧、用户和RSS订阅源总数统计

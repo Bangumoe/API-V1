@@ -16,8 +16,8 @@ const docTemplate = `{
             "email": "support@swagger.io"
         },
         "license": {
-            "name": "Apache 2.0",
-            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
         },
         "version": "{{.Version}}"
     },
@@ -744,6 +744,76 @@ const docTemplate = `{
                 ],
                 "summary": "实时监控系统日志",
                 "responses": {}
+            }
+        },
+        "/admin/settings": {
+            "get": {
+                "description": "获取全局关键词、排除关键词和字幕组黑名单设置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "全局设置"
+                ],
+                "summary": "获取全局设置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.GlobalSettingsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新全局关键词、排除关键词和字幕组黑名单设置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "全局设置"
+                ],
+                "summary": "更新全局设置",
+                "parameters": [
+                    {
+                        "description": "全局设置",
+                        "name": "settings",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.GlobalSettingsUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.GlobalSettingsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/admin/stats": {
@@ -2618,6 +2688,52 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.GlobalSettingsResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2024-05-20T12:00:00Z"
+                },
+                "exclude_keywords": {
+                    "type": "string",
+                    "example": "预告,PV"
+                },
+                "global_keywords": {
+                    "type": "string",
+                    "example": "动画,动漫"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "sub_group_blacklist": {
+                    "type": "string",
+                    "example": "字幕组1,字幕组2"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2024-05-20T12:00:00Z"
+                }
+            }
+        },
+        "controllers.GlobalSettingsUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "exclude_keywords": {
+                    "type": "string",
+                    "example": "预告,PV"
+                },
+                "global_keywords": {
+                    "type": "string",
+                    "example": "动画,动漫"
+                },
+                "sub_group_blacklist": {
+                    "type": "string",
+                    "example": "字幕组1,字幕组2"
+                }
+            }
+        },
         "controllers.GroupedByResolutionAndSub": {
             "type": "object",
             "properties": {
@@ -2682,6 +2798,7 @@ const docTemplate = `{
             }
         },
         "controllers.RSSResponse": {
+            "description": "RSS订阅源响应结构",
             "type": "object",
             "properties": {
                 "code": {
@@ -2902,6 +3019,10 @@ const docTemplate = `{
                 "url"
             ],
             "properties": {
+                "exclude_keywords": {
+                    "type": "string",
+                    "example": "预告,PV"
+                },
                 "keywords": {
                     "type": "string",
                     "example": "莉可丽丝,友谊是时间的窃贼"
@@ -2940,6 +3061,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
+                    "type": "string"
+                },
+                "exclude_keywords": {
                     "type": "string"
                 },
                 "id": {
@@ -2987,7 +3111,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
+	Version:          "1.2.0",
 	Host:             "localhost:8081",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},

@@ -170,6 +170,10 @@ func main() {
 			admin := authenticated.Group("/admin")
 			admin.Use(middleware.RequireRoles(models.RoleAdmin))
 			{
+				// 全局设置路由
+				admin.GET("/settings", controllers.GetGlobalSettings)
+				admin.PUT("/settings", controllers.UpdateGlobalSettings)
+
 				// 内测模式管理路由
 				admin.POST("/beta/toggle", betaModeController.ToggleBetaMode)
 				admin.POST("/beta/user-access", betaModeController.UpdateUserBetaAccess)
