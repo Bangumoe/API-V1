@@ -186,15 +186,37 @@ func processMikanFeed(db *gorm.DB, feed models.RSSFeed) error {
 					continue
 				}
 
-				// 预处理关键词
-				var keywords []string
-				if feed.Keywords != "" {
-					keywords = strings.Split(feed.Keywords, ",")
-					// 去除空格
-					for i := range keywords {
-						keywords[i] = strings.TrimSpace(keywords[i])
+				// 获取全局设置
+				settings, err := models.GetGlobalSettings()
+				if err != nil {
+					utils.LogError("获取全局设置失败", err)
+					continue
+				}
+
+				// 合并全局关键词和订阅源关键词
+				var allKeywords []string
+				if settings.GlobalKeywords != "" {
+					for _, k := range strings.Split(settings.GlobalKeywords, ",") {
+						allKeywords = append(allKeywords, strings.TrimSpace(k))
 					}
-					utils.LogInfo(fmt.Sprintf("分页工作协程 %d RSS源关键词: %v", workerID, keywords))
+				}
+				if feed.Keywords != "" {
+					for _, k := range strings.Split(feed.Keywords, ",") {
+						allKeywords = append(allKeywords, strings.TrimSpace(k))
+					}
+				}
+
+				// 合并全局排除关键词和订阅源排除关键词
+				var allExcludeKeywords []string
+				if settings.ExcludeKeywords != "" {
+					for _, k := range strings.Split(settings.ExcludeKeywords, ",") {
+						allExcludeKeywords = append(allExcludeKeywords, strings.TrimSpace(k))
+					}
+				}
+				if feed.ExcludeKeywords != "" {
+					for _, k := range strings.Split(feed.ExcludeKeywords, ",") {
+						allExcludeKeywords = append(allExcludeKeywords, strings.TrimSpace(k))
+					}
 				}
 
 				// 遍历所有条目链接
@@ -212,8 +234,22 @@ func processMikanFeed(db *gorm.DB, feed models.RSSFeed) error {
 						continue
 					}
 
+					// 跳过无title的条目，防止污染bangumi_id=1
+					if officialTitle == "" {
+						utils.LogError(fmt.Sprintf("跳过无效条目：officialTitle为空，itemURL=%s", itemURL), nil)
+						continue
+					}
+
+					// 全局排除关键词优先级最高
+					for _, ex := range allExcludeKeywords {
+						if ex != "" && (strings.Contains(originalTitle, ex) || strings.Contains(officialTitle, ex)) {
+							utils.LogInfo(fmt.Sprintf("分页工作协程 %d 命中排除关键词[%s]，跳过", workerID, ex))
+							continue // 跳过该item
+						}
+					}
+
 					// 解析原始标题
-					episodeInfo := parser.RawParser(originalTitle)
+					episodeInfo := parser.RawParser(originalTitle, settings.SubGroupBlacklist)
 					if episodeInfo == nil {
 						utils.LogError(fmt.Sprintf("分页工作协程 %d 解析原始标题失败: %s", workerID, originalTitle), nil)
 						continue
@@ -229,35 +265,29 @@ func processMikanFeed(db *gorm.DB, feed models.RSSFeed) error {
 						}
 					}
 
-					// 新的逻辑：
-					// 1. 如果字幕符合要求 (isChineseSub is true)，则直接处理，跳过关键词检查。
-					// 2. 如果字幕不符合要求 (isChineseSub is false)，则进行关键词检查。
-					//    a. 如果关键词匹配，则处理。
-					//    b. 如果关键词不匹配 (或无关键词)，则跳过。
-
 					if isChineseSub {
 						utils.LogInfo(fmt.Sprintf("分页工作协程 %d 标题 '%s' (字幕 '%s') 符合字幕要求，优先处理", workerID, originalTitle, episodeInfo.Sub))
 						// 字幕符合要求，直接进入后续处理流程
 					} else {
-						// 字幕不符合要求，需要检查关键词
-						if len(keywords) > 0 {
+						// 字幕不符合要求，需要检查关键词（合并后的allKeywords）
+						if len(allKeywords) > 0 {
 							matched := false
-							for _, keyword := range keywords {
-								if strings.Contains(originalTitle, keyword) || strings.Contains(officialTitle, keyword) {
+							for _, keyword := range allKeywords {
+								if keyword != "" && (strings.Contains(originalTitle, keyword) || strings.Contains(officialTitle, keyword)) {
 									matched = true
 									utils.LogInfo(fmt.Sprintf("分页工作协程 %d (字幕 '%s' 不符后) 标题匹配关键词[%s]: %s (官方: %s)", workerID, episodeInfo.Sub, keyword, originalTitle, officialTitle))
 									break
 								}
 							}
 							if !matched {
-								utils.LogInfo(fmt.Sprintf("分页工作协程 %d 标题 '%s' (字幕 '%s') 不符合字幕要求，且不匹配任何订阅源关键词，跳过", workerID, originalTitle, episodeInfo.Sub))
-								continue // 字幕不符且关键词不符，跳过
+								utils.LogInfo(fmt.Sprintf("分页工作协程 %d 标题 '%s' (字幕 '%s') 不符合字幕要求，且不匹配任何关键词，跳过", workerID, originalTitle, episodeInfo.Sub))
+								continue
 							}
 							// 字幕不符但关键词匹配，继续处理
 							utils.LogInfo(fmt.Sprintf("分页工作协程 %d 标题 '%s' (字幕 '%s' 不符) 但匹配关键词，继续处理", workerID, originalTitle, episodeInfo.Sub))
 						} else {
-							// 字幕不符合要求，且订阅源没有设置关键词，则跳过
-							utils.LogInfo(fmt.Sprintf("分页工作协程 %d 标题 '%s' (字幕 '%s') 不符合字幕要求 (订阅源无关键词)，跳过", workerID, originalTitle, episodeInfo.Sub))
+							// 字幕不符合要求，且没有设置关键词，则跳过
+							utils.LogInfo(fmt.Sprintf("分页工作协程 %d 标题 '%s' (字幕 '%s') 不符合字幕要求 (无关键词)，跳过", workerID, originalTitle, episodeInfo.Sub))
 							continue
 						}
 					}
@@ -331,7 +361,6 @@ func processMikanFeed(db *gorm.DB, feed models.RSSFeed) error {
 
 					utils.LogInfo(fmt.Sprintf("分页工作协程 %d 成功添加RSS条目: %s (第%d集)", workerID, officialTitle, episodeInfo.Episode))
 				}
-				pageResults <- nil // Indicate page processing finished without critical error
 			}
 		}(w, pageJobs, pageResults)
 	}

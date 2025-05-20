@@ -2,6 +2,7 @@ package parser
 
 import (
 	"backend/utils"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -352,13 +353,34 @@ func process(rawTitle string) (string, string, string, int, string, int, string,
 	return nameEn, nameZh, nameJp, season, seasonRaw, episode, sub, resolution, source, group
 }
 
+// IsGroupBlacklisted 检查字幕组是否在黑名单中
+func IsGroupBlacklisted(group string, blacklist string) bool {
+	if blacklist == "" || group == "" {
+		return false
+	}
+
+	blacklistedGroups := strings.Split(blacklist, ",")
+	for _, blacklistedGroup := range blacklistedGroups {
+		if strings.TrimSpace(blacklistedGroup) == strings.TrimSpace(group) {
+			return true
+		}
+	}
+	return false
+}
+
 // RawParser 解析原始标题并返回Episode对象
-func RawParser(raw string) *Episode {
+func RawParser(raw string, blacklist string) *Episode {
 	nameEn, nameZh, nameJp, season, seasonRaw, episode, sub, resolution, source, group := process(raw)
 
 	// 如果解析失败，记录错误并返回nil
 	if nameEn == "" && nameZh == "" && nameJp == "" {
 		utils.LogError("解析器无法解析标题", nil)
+		return nil
+	}
+
+	// 检查字幕组是否在黑名单中
+	if IsGroupBlacklisted(group, blacklist) {
+		utils.LogInfo(fmt.Sprintf("字幕组 %s 在黑名单中，跳过处理", group))
 		return nil
 	}
 
