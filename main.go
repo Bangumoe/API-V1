@@ -131,6 +131,8 @@ func main() {
 		{
 			// 用户信息路由（不受内测模式限制）
 			authenticated.GET("/user/info", authController.GetUserInfo)
+			authenticated.PUT("/user/info", authController.UpdateUserInfo)
+			authenticated.PUT("/user/password", authController.UpdatePassword)
 
 			// 需要内测权限的路由组
 			beta := authenticated.Group("")
