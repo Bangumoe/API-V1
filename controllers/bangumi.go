@@ -1573,6 +1573,18 @@ func GetBangumiStatsByID(c *gin.Context) {
 		"favorite_count": bangumi.FavoriteCount,
 		"rating_avg":     bangumi.RatingAvg,
 		"rating_count":   bangumi.RatingCount,
+		"is_favorite":    false, // 默认未收藏
+	}
+
+	// 获取用户ID并查询收藏状态
+	if userIDValue, exists := c.Get("user_id"); exists {
+		if userIDFloat, ok := userIDValue.(float64); ok {
+			uid := uint(userIDFloat)
+			var favorite models.BangumiFavorite
+			if err := models.DB.Where("user_id = ? AND bangumi_id = ?", uid, uint(bangumiID)).First(&favorite).Error; err == nil {
+				stats["is_favorite"] = true
+			}
+		}
 	}
 
 	c.JSON(http.StatusOK, BangumiResponse{

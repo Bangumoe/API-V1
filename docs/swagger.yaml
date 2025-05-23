@@ -169,6 +169,18 @@ definitions:
       message:
         type: string
     type: object
+  controllers.UpdatePasswordRequest:
+    properties:
+      new_password:
+        example: newpass123
+        type: string
+      old_password:
+        example: oldpass123
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
   models.Activity:
     description: 系统活动记录
     properties:
@@ -2009,6 +2021,87 @@ paths:
       security:
       - Bearer: []
       summary: 获取当前用户信息
+      tags:
+      - 用户
+    put:
+      consumes:
+      - multipart/form-data
+      description: 更新当前登录用户的基本信息（邮箱、头像和密码）
+      parameters:
+      - description: 邮箱
+        in: formData
+        name: email
+        type: string
+      - description: 头像文件
+        in: formData
+        name: avatar
+        type: file
+      - description: 旧密码
+        in: formData
+        name: old_password
+        type: string
+      - description: 新密码
+        in: formData
+        name: new_password
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      security:
+      - Bearer: []
+      summary: 更新当前用户信息
+      tags:
+      - 用户
+  /user/password:
+    put:
+      consumes:
+      - application/json
+      description: 修改当前登录用户的密码
+      parameters:
+      - description: 密码更新信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.UpdatePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      security:
+      - Bearer: []
+      summary: 修改密码
       tags:
       - 用户
 securityDefinitions:

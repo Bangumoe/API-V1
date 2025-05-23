@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"backend/utils"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
@@ -217,7 +219,175 @@ func (ac *AuthController) GetUserInfo(c *gin.Context) {
 		return
 	}
 
+	// 获取用户收藏番剧数量
+	var favoriteCount int64
+	if err := ac.DB.Model(&models.BangumiFavorite{}).Where("user_id = ?", userId).Count(&favoriteCount).Error; err != nil {
+		utils.LogError("获取用户收藏数量失败", err)
+	}
+
+	// 获取用户评论数量
+	var commentCount int64
+	if err := ac.DB.Model(&models.BangumiRating{}).Where("user_id = ?", userId).Count(&commentCount).Error; err != nil {
+		utils.LogError("获取用户评论数量失败", err)
+	}
+
 	c.JSON(http.StatusOK, Response{
+		Data: gin.H{
+			"id":             user.ID,
+			"username":       user.Username,
+			"email":          user.Email,
+			"role":           user.Role,
+			"avatar":         user.Avatar,
+			"is_allowed":     user.IsAllowed,
+			"created_at":     user.CreatedAt,
+			"updated_at":     user.UpdatedAt,
+			"favorite_count": favoriteCount,
+			"comment_count":  commentCount,
+		},
+	})
+}
+
+// UpdateUserInfo godoc
+// @Summary      更新当前用户信息
+// @Description  更新当前登录用户的基本信息（邮箱、头像和密码）
+// @Tags         用户
+// @Accept       multipart/form-data
+// @Produce      json
+// @Security     Bearer
+// @Param        email formData string false "邮箱"
+// @Param        avatar formData file false "头像文件"
+// @Param        old_password formData string false "旧密码"
+// @Param        new_password formData string false "新密码"
+// @Success      200  {object}  Response
+// @Failure      400  {object}  Response
+// @Failure      401  {object}  Response
+// @Failure      500  {object}  Response
+// @Router       /user/info [put]
+func (ac *AuthController) UpdateUserInfo(c *gin.Context) {
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, Response{Error: "用户未认证"})
+		return
+	}
+
+	// 获取当前用户信息
+	var user models.User
+	if err := ac.DB.First(&user, userId).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, Response{Error: "获取用户信息失败"})
+		return
+	}
+
+	// 获取表单数据
+	email := c.PostForm("email")
+	oldPassword := c.PostForm("old_password")
+	newPassword := c.PostForm("new_password")
+
+	// 验证邮箱是否已存在
+	if email != "" && email != user.Email {
+		var existingUser models.User
+		if err := ac.DB.Where("email = ? AND id != ?", email, userId).First(&existingUser).Error; err == nil {
+			c.JSON(http.StatusBadRequest, Response{Error: "邮箱已存在"})
+			return
+		}
+	}
+
+	// 处理密码修改
+	if oldPassword != "" && newPassword != "" {
+		// 验证旧密码
+		if err := user.ComparePassword(oldPassword); err != nil {
+			c.JSON(http.StatusBadRequest, Response{Error: "旧密码错误"})
+			return
+		}
+
+		// 验证新密码长度
+		if len(newPassword) < 6 {
+			c.JSON(http.StatusBadRequest, Response{Error: "新密码长度不能少于6个字符"})
+			return
+		}
+
+		// 验证新密码不能与旧密码相同
+		if oldPassword == newPassword {
+			c.JSON(http.StatusBadRequest, Response{Error: "新密码不能与旧密码相同"})
+			return
+		}
+
+		// 更新密码
+		user.Password = newPassword
+		if err := user.HashPassword(); err != nil {
+			utils.LogError("密码加密失败", err)
+			c.JSON(http.StatusInternalServerError, Response{Error: "密码更新失败"})
+			return
+		}
+	}
+
+	// 处理头像上传
+	file, err := c.FormFile("avatar")
+	if err == nil && file != nil {
+		// 生成唯一文件名
+		ext := filepath.Ext(file.Filename)
+		fileName := fmt.Sprintf("avatar_%d%s", time.Now().UnixNano(), ext)
+		avatarDir := "uploads/avatars"
+
+		// 确保目录存在
+		if err := os.MkdirAll(avatarDir, 0755); err != nil {
+			c.JSON(http.StatusInternalServerError, Response{Error: "创建头像目录失败"})
+			return
+		}
+
+		// 保存文件
+		filePath := filepath.Join(avatarDir, fileName)
+		if err := c.SaveUploadedFile(file, filePath); err != nil {
+			c.JSON(http.StatusInternalServerError, Response{Error: "保存头像失败"})
+			return
+		}
+
+		// 删除旧头像文件
+		if user.Avatar != "" {
+			oldAvatarPath := user.Avatar
+			if oldAvatarPath[0] == '/' {
+				oldAvatarPath = oldAvatarPath[1:]
+			}
+			if err := os.Remove(oldAvatarPath); err != nil {
+				utils.LogError("删除旧头像文件失败", err)
+			}
+		}
+
+		user.Avatar = "/" + filePath
+	}
+
+	// 更新用户信息
+	updates := map[string]interface{}{}
+	if email != "" {
+		updates["email"] = email
+	}
+	if user.Avatar != "" {
+		updates["avatar"] = user.Avatar
+	}
+	if user.Password != "" {
+		updates["password"] = user.Password
+	}
+
+	if err := ac.DB.Model(&user).Updates(updates).Error; err != nil {
+		utils.LogError("更新用户信息失败", err)
+		c.JSON(http.StatusInternalServerError, Response{Error: "更新用户信息失败"})
+		return
+	}
+
+	// 记录活动
+	activityMsg := "用户更新了个人信息"
+	if newPassword != "" {
+		activityMsg = "用户更新了个人信息和密码"
+	}
+	ac.activityService.RecordActivity("user", fmt.Sprintf("用户 \"%s\" %s", user.Username, activityMsg))
+
+	// 获取更新后的用户信息
+	if err := ac.DB.First(&user, userId).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, Response{Error: "获取更新后的用户信息失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, Response{
+		Message: "更新用户信息成功",
 		Data: gin.H{
 			"id":         user.ID,
 			"username":   user.Username,
@@ -235,4 +405,83 @@ func (ac *AuthController) GetUserInfo(c *gin.Context) {
 type LoginRequest struct {
 	Username string `json:"username" binding:"required" example:"user123"`
 	Password string `json:"password" binding:"required" example:"password123"`
+}
+
+// UpdatePasswordRequest 密码更新请求结构
+type UpdatePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required" example:"oldpass123"`
+	NewPassword string `json:"new_password" binding:"required" example:"newpass123"`
+}
+
+// UpdatePassword godoc
+// @Summary      修改密码
+// @Description  修改当前登录用户的密码
+// @Tags         用户
+// @Accept       json
+// @Produce      json
+// @Security     Bearer
+// @Param        request body UpdatePasswordRequest true "密码更新信息"
+// @Success      200  {object}  Response
+// @Failure      400  {object}  Response
+// @Failure      401  {object}  Response
+// @Failure      500  {object}  Response
+// @Router       /user/password [put]
+func (ac *AuthController) UpdatePassword(c *gin.Context) {
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, Response{Error: "用户未认证"})
+		return
+	}
+
+	var req UpdatePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{Error: "无效的请求参数"})
+		return
+	}
+
+	// 验证新密码长度
+	if len(req.NewPassword) < 6 {
+		c.JSON(http.StatusBadRequest, Response{Error: "新密码长度不能少于6个字符"})
+		return
+	}
+
+	// 获取当前用户信息
+	var user models.User
+	if err := ac.DB.First(&user, userId).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, Response{Error: "获取用户信息失败"})
+		return
+	}
+
+	// 验证旧密码
+	if err := user.ComparePassword(req.OldPassword); err != nil {
+		c.JSON(http.StatusBadRequest, Response{Error: "旧密码错误"})
+		return
+	}
+
+	// 验证新密码不能与旧密码相同
+	if req.OldPassword == req.NewPassword {
+		c.JSON(http.StatusBadRequest, Response{Error: "新密码不能与旧密码相同"})
+		return
+	}
+
+	// 更新密码
+	user.Password = req.NewPassword
+	if err := user.HashPassword(); err != nil {
+		utils.LogError("密码加密失败", err)
+		c.JSON(http.StatusInternalServerError, Response{Error: "密码更新失败"})
+		return
+	}
+
+	if err := ac.DB.Model(&user).Update("password", user.Password).Error; err != nil {
+		utils.LogError("更新密码失败", err)
+		c.JSON(http.StatusInternalServerError, Response{Error: "密码更新失败"})
+		return
+	}
+
+	// 记录活动
+	ac.activityService.RecordActivity("user", fmt.Sprintf("用户 \"%s\" 修改了密码", user.Username))
+
+	c.JSON(http.StatusOK, Response{
+		Message: "密码修改成功",
+	})
 }
