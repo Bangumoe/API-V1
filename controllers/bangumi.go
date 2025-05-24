@@ -1997,3 +1997,78 @@ func UpdateBangumi(c *gin.Context) {
 		Data:    bangumi,
 	})
 }
+
+// GetUserFavorites godoc
+// @Summary      获取用户收藏的番剧列表
+// @Description  获取当前登录用户收藏的所有番剧
+// @Tags         番剧
+// @Accept       json
+// @Produce      json
+// @Security     Bearer
+// @Param        page query int false "页码，默认1"
+// @Param        page_size query int false "每页数量，默认10"
+// @Success      200  {object}  Response
+// @Failure      401  {object}  Response
+// @Failure      500  {object}  Response
+// @Router       /user/favorites [get]
+func GetUserFavorites(c *gin.Context) {
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, Response{Error: "用户未认证"})
+		return
+	}
+
+	// 获取分页参数
+	page := utils.GetPage(c)
+	pageSize := utils.GetPageSize(c)
+
+	// 查询用户收藏的番剧
+	var favorites []models.BangumiFavorite
+	var total int64
+
+	// 获取总数
+	if err := models.DB.Model(&models.BangumiFavorite{}).Where("user_id = ?", userId).Count(&total).Error; err != nil {
+		utils.LogError("获取用户收藏总数失败", err)
+		c.JSON(http.StatusInternalServerError, Response{Error: "获取收藏列表失败"})
+		return
+	}
+
+	// 获取收藏列表
+	if err := models.DB.Where("user_id = ?", userId).
+		Preload("Bangumi").
+		Order("created_at DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&favorites).Error; err != nil {
+		utils.LogError("获取用户收藏列表失败", err)
+		c.JSON(http.StatusInternalServerError, Response{Error: "获取收藏列表失败"})
+		return
+	}
+
+	// 构建响应数据
+	var bangumiList []gin.H
+	for _, fav := range favorites {
+		bangumiList = append(bangumiList, gin.H{
+			"id":             fav.Bangumi.ID,
+			"title":          fav.Bangumi.OfficialTitle,
+			"cover":          fav.Bangumi.PosterLink,
+			"description":    "",
+			"year":           fav.Bangumi.Year,
+			"season":         fav.Bangumi.Season,
+			"status":         "",
+			"favorite_at":    fav.CreatedAt,
+			"view_count":     fav.Bangumi.ViewCount,     // 添加播放量
+			"favorite_count": fav.Bangumi.FavoriteCount, // 添加收藏量
+		})
+	}
+
+	c.JSON(http.StatusOK, Response{
+		Data: gin.H{
+			"total":       total,
+			"page":        page,
+			"page_size":   pageSize,
+			"total_pages": (total + int64(pageSize) - 1) / int64(pageSize),
+			"list":        bangumiList,
+		},
+	})
+}

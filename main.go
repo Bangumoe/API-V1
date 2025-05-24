@@ -121,7 +121,23 @@ func main() {
 		v1beta := v1.Group("")
 		v1beta.Use(middleware.BetaModeMiddleware())
 		{
+			// 公开但是要内测权限
 			v1beta.POST("/register", authController.Register)
+
+			// 统计和排名相关路由
+			v1beta.GET("/bangumi/stats/views", controllers.GetBangumiViewStats) // 番剧播放量统计
+			v1beta.GET("/bangumi/stats/favorites", controllers.GetBangumiFavoriteStats) // 番剧收藏量统计
+			v1beta.GET("/bangumi/stats/ratings", controllers.GetBangumiRatingStats) // 番剧评分统计
+			v1beta.GET("/bangumi/stats/rankings", controllers.GetBangumiRankings) // 番剧排行榜
+
+			v1beta.GET("/bangumi/year/:year", controllers.GetBangumiByYear) // 按年份查询番剧
+
+			// 所有番剧相关路由
+			v1beta.GET("/bangumi", controllers.GetAllBangumi) // 获取所有番剧
+			v1beta.GET("/bangumi/stats", controllers.GetBangumiStats) // 番剧统计
+			v1beta.GET("/bangumi/years", controllers.GetBangumiYears) // 获取所有年份
+			v1beta.GET("/carousels", carouselController.GetCarousels) // 获取轮播图
+
 		}
 		v1.POST("/login", authController.Login)
 
@@ -130,42 +146,33 @@ func main() {
 		authenticated.Use(middleware.AuthMiddleware())
 		{
 			// 用户信息路由（不受内测模式限制）
-			authenticated.GET("/user/info", authController.GetUserInfo)
-			authenticated.PUT("/user/info", authController.UpdateUserInfo)
-			authenticated.PUT("/user/password", authController.UpdatePassword)
+			authenticated.GET("/user/info", authController.GetUserInfo) // 获取用户信息
+			authenticated.PUT("/user/info", authController.UpdateUserInfo) // 更新用户信息
+			authenticated.PUT("/user/password", authController.UpdatePassword) // 更新密码
+			authenticated.GET("/user/favorites", controllers.GetUserFavorites) // 获取用户收藏
 
 			// 需要内测权限的路由组
 			beta := authenticated.Group("")
 			beta.Use(middleware.BetaModeMiddleware())
 			{
-				v1.GET("/bangumi/years", controllers.GetBangumiYears)
-				v1.GET("/carousels", carouselController.GetCarousels)
+
 				// 番剧统计相关路由
-				beta.POST("/bangumi/:id/view", controllers.IncrementViewCount)
-				beta.POST("/bangumi/:id/favorite", controllers.ToggleFavorite)
-				beta.POST("/bangumi/:id/rating", controllers.AddOrUpdateRating)
-				beta.GET("/bangumi/:id/rating", controllers.GetUserRating)
-				beta.DELETE("/bangumi/:id/rating", controllers.DeleteUserRating)
+				beta.POST("/bangumi/:id/view", controllers.IncrementViewCount) // 增加番剧播放量
+				beta.POST("/bangumi/:id/favorite", controllers.ToggleFavorite) // 切换番剧收藏状态
+				beta.POST("/bangumi/:id/rating", controllers.AddOrUpdateRating) // 更新或添加用户评分
+				beta.DELETE("/bangumi/:id/rating", controllers.DeleteUserRating) // 删除用户评分
 
-				// 统计和排名相关路由
-				beta.GET("/bangumi/stats/views", controllers.GetBangumiViewStats)
-				beta.GET("/bangumi/stats/favorites", controllers.GetBangumiFavoriteStats)
-				beta.GET("/bangumi/stats/ratings", controllers.GetBangumiRatingStats)
-				beta.GET("/bangumi/stats/rankings", controllers.GetBangumiRankings)
-
-				// 指定番剧统计相关路由
-				beta.GET("/bangumi/:id/stats", controllers.GetBangumiStatsByID)
-				beta.GET("/bangumi/:id/rating_stats", controllers.GetBangumiRatingStatsByID)
-				beta.GET("/bangumi/year/:year", controllers.GetBangumiByYear)
+				beta.GET("/bangumi/:id/rating", controllers.GetUserRating) // 获取用户评分
+				beta.GET("/bangumi/:id/stats", controllers.GetBangumiStatsByID) // 获取番剧统计信息
+				beta.GET("/bangumi/:id/rating_stats", controllers.GetBangumiRatingStatsByID) // 获取番剧评分统计信息
 
 				// Bangumi 相关路由
-				beta.GET("/bangumi", controllers.GetAllBangumi)
-				beta.GET("/bangumi/search", controllers.SearchBangumi)
-				beta.GET("/bangumi/stats", controllers.GetBangumiStats)
-				beta.GET("/bangumi/:id", controllers.GetBangumiByID)
-				beta.GET("/bangumi/grouped_items/:id", controllers.GetGroupedBangumiRSSItems)
-				beta.GET("/bangumi/items/:id", controllers.GetBangumiRSSItems)
-				beta.GET("/bangumi/:id/group_episode", controllers.GetGroupEpisodeInfo)
+
+				beta.GET("/bangumi/search", controllers.SearchBangumi) // 搜索番剧
+				beta.GET("/bangumi/:id", controllers.GetBangumiByID) // 获取番剧详情
+				beta.GET("/bangumi/grouped_items/:id", controllers.GetGroupedBangumiRSSItems) // 获取番剧组
+				beta.GET("/bangumi/items/:id", controllers.GetBangumiRSSItems) // 获取番剧RSS
+				beta.GET("/bangumi/:id/group_episode", controllers.GetGroupEpisodeInfo) // 获取番剧集数信息
 			}
 
 			// 管理员路由组

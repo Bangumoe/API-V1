@@ -2002,6 +2002,40 @@ paths:
       summary: 手动更新所有RSS订阅
       tags:
       - RSS订阅源管理
+  /user/favorites:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前登录用户收藏的所有番剧
+      parameters:
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认10
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      security:
+      - Bearer: []
+      summary: 获取用户收藏的番剧列表
+      tags:
+      - 番剧
   /user/info:
     get:
       consumes:
