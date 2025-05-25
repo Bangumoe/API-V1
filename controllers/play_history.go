@@ -233,6 +233,11 @@ func GetPlayHistory(c *gin.Context) {
 		return
 	}
 
+	// 保证list为[]而不是null
+	if history == nil {
+		history = make([]HistoryArray, 0)
+	}
+
 	// 构建响应数据
 	c.JSON(http.StatusOK, Response{
 		Data: gin.H{
