@@ -34,6 +34,7 @@ func InitDB() (*gorm.DB, error) {
 		&models.BangumiRating{},
 		&models.Carousel{},
 		&models.GlobalSettings{},
+		&models.PlayHistory{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("数据库迁移失败: %v", err)

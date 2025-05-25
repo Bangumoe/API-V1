@@ -83,6 +83,14 @@ definitions:
           $ref: '#/definitions/controllers.ResolutionGroupedSubs'
         type: array
     type: object
+  controllers.HistoryRequest:
+    properties:
+      url:
+        example: https://mikanime.tv/Download/20120812/6cfa68ddda6972015edbc4a505357ed4d2275f77.torrent
+        type: string
+    required:
+    - url
+    type: object
   controllers.LogResponse:
     properties:
       code:
@@ -1730,6 +1738,94 @@ paths:
       summary: 获取所有轮播图
       tags:
       - carousel
+  /history/{id}/play_history:
+    delete:
+      consumes:
+      - application/json
+      description: 软删除 需要编写定时器清理过期的记录和已经被删除的记录
+      parameters:
+      - description: historyId
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      security:
+      - Bearer: []
+      summary: 删除观看历史记录
+      tags:
+      - 播放记录
+  /history/play_history:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前登录用户观看历史记录
+      parameters:
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认10
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.Response'
+      security:
+      - Bearer: []
+      summary: 获取用户观看历史记录
+      tags:
+      - 播放记录
+    post:
+      consumes:
+      - application/json
+      description: 点击立即播放的时候记录,如果历史记录已存在则更新上次播放时间
+      parameters:
+      - description: 历史记录请求信息
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.HistoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controllers.BangumiResponse'
+      security:
+      - Bearer: []
+      summary: 增加或更新观看历史记录
+      tags:
+      - 播放记录
   /login:
     post:
       consumes:
