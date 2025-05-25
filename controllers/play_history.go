@@ -4,6 +4,7 @@ import (
 	"backend/models"
 	"backend/utils"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -233,9 +234,18 @@ func GetPlayHistory(c *gin.Context) {
 		return
 	}
 
+	clientIP := c.ClientIP()
+	fmt.Printf("GetPlayHistory - Client IP: %s\n", clientIP) // 添加日志
+
 	// 保证list为[]而不是null
 	if history == nil {
 		history = make([]HistoryArray, 0)
+	}
+
+	// 处理封面链接
+	for i := range history {
+		coverPtr := &history[i].Cover
+		history[i].Cover = *utils.GetPrefixedURL(clientIP, coverPtr)
 	}
 
 	// 构建响应数据

@@ -154,13 +154,6 @@ func GetMikanBasicInfo(homepage string) (string, string, string, string, string,
 
 // GetMikanPosterURL 获取Mikan页面的海报URL
 func GetMikanPosterURL(homepage string) (string, error) {
-	// 解析URL获取主机名
-	parsedURL, err := url.Parse(homepage)
-	if err != nil {
-		return "", err
-	}
-	rootPath := parsedURL.Host
-
 	// 获取海报URL
 	resp, err := http.Get(homepage)
 	if err != nil {
@@ -191,7 +184,6 @@ func GetMikanPosterURL(homepage string) (string, error) {
 		posterPath = strings.Split(posterPath, "?")[0]
 	}
 
-	// 返回海报的完整URL
-	posterFullURL := fmt.Sprintf("https://%s%s", rootPath, posterPath)
-	return posterFullURL, nil
+	// 返回海报的路径
+	return posterPath, nil
 }

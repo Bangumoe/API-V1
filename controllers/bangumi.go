@@ -142,6 +142,14 @@ func GetAllBangumi(c *gin.Context) {
 		return
 	}
 
+	clientIP := c.ClientIP()
+	fmt.Printf("GetAllBangumi - Client IP: %s\n", clientIP) // 添加日志
+
+	// 根据请求来源处理 PosterLink
+	for i := range bangumis {
+		bangumis[i].PosterLink = utils.GetPrefixedURL(clientIP, bangumis[i].PosterLink)
+	}
+
 	c.JSON(http.StatusOK, BangumiResponse{
 		Code:    http.StatusOK,
 		Message: "获取番剧列表成功",
@@ -226,6 +234,14 @@ func SearchBangumi(c *gin.Context) {
 		return
 	}
 
+	clientIP := c.ClientIP()
+	fmt.Printf("SearchBangumi - Client IP: %s\n", clientIP) // 添加日志
+
+	// 根据请求来源处理 PosterLink
+	for i := range bangumis {
+		bangumis[i].PosterLink = utils.GetPrefixedURL(clientIP, bangumis[i].PosterLink)
+	}
+
 	c.JSON(http.StatusOK, BangumiResponse{
 		Code:    http.StatusOK,
 		Message: "搜索番剧成功",
@@ -263,6 +279,12 @@ func GetBangumiByID(c *gin.Context) {
 		}
 		return
 	}
+
+	clientIP := c.ClientIP()
+	fmt.Printf("GetBangumiByID - Client IP: %s\n", clientIP) // 添加日志
+
+	// 根据请求来源处理 PosterLink
+	bangumi.PosterLink = utils.GetPrefixedURL(clientIP, bangumi.PosterLink)
 
 	c.JSON(http.StatusOK, BangumiResponse{
 		Code:    http.StatusOK,
@@ -1307,6 +1329,12 @@ func GetBangumiViewStats(c *gin.Context) {
 		return
 	}
 
+	// Update PosterLink for each bangumi
+	clientIP := c.ClientIP()
+	for i := range bangumis {
+		bangumis[i].PosterLink = utils.GetPrefixedURL(clientIP, bangumis[i].PosterLink)
+	}
+
 	c.JSON(http.StatusOK, BangumiResponse{
 		Code:    http.StatusOK,
 		Message: "获取番剧点击量统计成功",
@@ -1374,6 +1402,12 @@ func GetBangumiFavoriteStats(c *gin.Context) {
 			Error:   err.Error(),
 		})
 		return
+	}
+
+	// Update PosterLink for each bangumi
+	clientIP := c.ClientIP()
+	for i := range bangumis {
+		bangumis[i].PosterLink = utils.GetPrefixedURL(clientIP, bangumis[i].PosterLink)
 	}
 
 	c.JSON(http.StatusOK, BangumiResponse{
@@ -1447,6 +1481,12 @@ func GetBangumiRatingStats(c *gin.Context) {
 		return
 	}
 
+	// Update PosterLink for each bangumi
+	clientIP := c.ClientIP()
+	for i := range bangumis {
+		bangumis[i].PosterLink = utils.GetPrefixedURL(clientIP, bangumis[i].PosterLink)
+	}
+
 	c.JSON(http.StatusOK, BangumiResponse{
 		Code:    http.StatusOK,
 		Message: "获取番剧评分统计成功",
@@ -1517,6 +1557,12 @@ func GetBangumiRankings(c *gin.Context) {
 			Error:   err.Error(),
 		})
 		return
+	}
+
+	// Update PosterLink for each bangumi
+	clientIP := c.ClientIP()
+	for i := range bangumis {
+		bangumis[i].PosterLink = utils.GetPrefixedURL(clientIP, bangumis[i].PosterLink)
 	}
 
 	c.JSON(http.StatusOK, BangumiResponse{
@@ -1745,6 +1791,14 @@ func GetBangumiByYear(c *gin.Context) {
 			Error:   err.Error(),
 		})
 		return
+	}
+
+	clientIP := c.ClientIP()
+	fmt.Printf("SearchBangumi - Client IP: %s\n", clientIP) // 添加日志
+
+	// 根据请求来源处理 PosterLink
+	for i := range bangumis {
+		bangumis[i].PosterLink = utils.GetPrefixedURL(clientIP, bangumis[i].PosterLink)
 	}
 
 	c.JSON(http.StatusOK, BangumiResponse{
@@ -2045,13 +2099,16 @@ func GetUserFavorites(c *gin.Context) {
 		return
 	}
 
+	clientIP := c.ClientIP()
+	fmt.Printf("GetUserFavorites - Client IP: %s\n", clientIP) // 添加日志
+
 	// 构建响应数据
 	var bangumiList []gin.H
 	for _, fav := range favorites {
 		bangumiList = append(bangumiList, gin.H{
 			"id":             fav.Bangumi.ID,
 			"title":          fav.Bangumi.OfficialTitle,
-			"cover":          fav.Bangumi.PosterLink,
+			"cover":          utils.GetPrefixedURL(clientIP, fav.Bangumi.PosterLink),
 			"description":    "",
 			"year":           fav.Bangumi.Year,
 			"season":         fav.Bangumi.Season,
