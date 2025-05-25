@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,19 +22,39 @@ type IPInfoResponse struct {
 	} `json:"data"`
 }
 
-// IsChineseIP 使用外部API检查IP地址是否来自中国
-func IsChineseIP(ipAddr string) bool {
-	fmt.Printf("IsChineseIP called with IP: %s\n", ipAddr)
+// isChineseIPCacheEntry 用于缓存IP检测结果和过期时间
+var (
+	isChineseIPCache      = make(map[string]isChineseIPCacheEntry)
+	isChineseIPCacheMutex sync.RWMutex
+)
 
-	// 针对本地开发环境，将本地回环地址视为中国IP
-	if ipAddr == "::1" || ipAddr == "127.0.0.1" {
-		fmt.Printf("IP %s is a loopback address, treating as Chinese IP for local development.\n", ipAddr)
-		return true
+type isChineseIPCacheEntry struct {
+	Result    bool
+	ExpiresAt time.Time
+}
+
+// IsChineseIP 使用外部API检查IP地址是否来自中国，带本地缓存，降低API请求频率
+func IsChineseIP(ipAddr string) bool {
+	// 优先查缓存，避免重复判断
+	isChineseIPCacheMutex.RLock()
+	entry, found := isChineseIPCache[ipAddr]
+	isChineseIPCacheMutex.RUnlock()
+	if found && time.Now().Before(entry.ExpiresAt) {
+		// 命中缓存直接返回
+		return entry.Result
 	}
 
-	// 如果是本地回环地址或私有IP，直接返回false或根据实际需求处理
-	// net.ParseIP(ipAddr) 可以用来检查是否是有效的IP格式，以及是否是私有/回环地址
-	// 这里为了简化，直接调用API，API本身可能会处理无效IP的情况
+	// 针对本地开发环境，将本地回环地址视为中国IP，并永久缓存
+	if ipAddr == "::1" || ipAddr == "127.0.0.1" {
+		fmt.Printf("IP %s is a loopback address, treating as Chinese IP for local development.\n", ipAddr)
+		isChineseIPCacheMutex.Lock()
+		isChineseIPCache[ipAddr] = isChineseIPCacheEntry{
+			Result:    true,
+			ExpiresAt: time.Now().Add(100 * 365 * 24 * time.Hour), // 永久缓存
+		}
+		isChineseIPCacheMutex.Unlock()
+		return true
+	}
 
 	apiURL := fmt.Sprintf("https://ip9.com.cn/get?ip=%s", ipAddr)
 
@@ -72,6 +93,15 @@ func IsChineseIP(ipAddr string) bool {
 	fmt.Printf("IP API parsed response for IP %s: Ret=%d, CountryCode='%s'\n", ipAddr, ipInfo.Ret, ipInfo.Data.CountryCode)
 	result := ipInfo.Ret == 200 && ipInfo.Data.CountryCode == "cn"
 	fmt.Printf("IsChineseIP for IP %s returning: %t\n", ipAddr, result)
+
+	// 写入缓存，缓存10分钟
+	isChineseIPCacheMutex.Lock()
+	isChineseIPCache[ipAddr] = isChineseIPCacheEntry{
+		Result:    result,
+		ExpiresAt: time.Now().Add(10 * time.Minute),
+	}
+	isChineseIPCacheMutex.Unlock()
+
 	return result
 }
 
