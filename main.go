@@ -114,29 +114,38 @@ func main() {
 	// API v1 路由组
 	v1 := r.Group("/api/v1")
 	{
-		// 内测模式状态检查路由（公开）
-		v1.GET("/beta/status", betaModeController.GetBetaModeStatus)
+
+		
 
 		// 公开路由
-		v1beta := v1.Group("")
-		v1beta.Use(middleware.BetaModeMiddleware())
+		v1public := v1.Group("")
 		{
-			// 公开但是要内测权限
-			v1beta.POST("/register", authController.Register)
+			// 内测模式状态检查路由（公开）
+			v1public.GET("/beta/status", betaModeController.GetBetaModeStatus)
 
+			
 			// 统计和排名相关路由
-			v1beta.GET("/bangumi/stats/views", controllers.GetBangumiViewStats)         // 番剧播放量统计
-			v1beta.GET("/bangumi/stats/favorites", controllers.GetBangumiFavoriteStats) // 番剧收藏量统计
-			v1beta.GET("/bangumi/stats/ratings", controllers.GetBangumiRatingStats)     // 番剧评分统计
-			v1beta.GET("/bangumi/stats/rankings", controllers.GetBangumiRankings)       // 番剧排行榜
-
-			v1beta.GET("/bangumi/year/:year", controllers.GetBangumiByYear) // 按年份查询番剧
-
+			v1public.GET("/bangumi/stats/views", controllers.GetBangumiViewStats)         // 番剧播放量统计
+			v1public.GET("/bangumi/stats/favorites", controllers.GetBangumiFavoriteStats) // 番剧收藏量统计
+			v1public.GET("/bangumi/stats/ratings", controllers.GetBangumiRatingStats)     // 番剧评分统计
+			v1public.GET("/bangumi/stats/rankings", controllers.GetBangumiRankings)       // 番剧排行榜
+				
+			v1public.GET("/bangumi/year/:year", controllers.GetBangumiByYear) // 按年份查询番剧
+				
 			// 所有番剧相关路由
-			v1beta.GET("/bangumi", controllers.GetAllBangumi)         // 获取所有番剧
-			v1beta.GET("/bangumi/stats", controllers.GetBangumiStats) // 番剧统计
-			v1beta.GET("/bangumi/years", controllers.GetBangumiYears) // 获取所有年份
-			v1beta.GET("/carousels", carouselController.GetCarousels) // 获取轮播图
+			v1public.GET("/bangumi", controllers.GetAllBangumi)         // 获取所有番剧
+			v1public.GET("/bangumi/stats", controllers.GetBangumiStats) // 番剧统计
+			v1public.GET("/bangumi/years", controllers.GetBangumiYears) // 获取所有年份
+			v1public.GET("/carousels", carouselController.GetCarousels) // 获取轮播图
+			
+			v1beta :=v1public.Group("")
+			v1beta.Use(middleware.BetaModeMiddleware())
+			{
+				// 公开但是要内测权限
+				v1beta.POST("/register", authController.Register)
+
+			}
+			
 
 		}
 		v1.POST("/login", authController.Login)
