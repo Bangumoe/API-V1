@@ -104,10 +104,13 @@ func (icc *InvitationCodeController) GenerateInvitationCodes(c *gin.Context) {
 // @Router /admin/invitation-codes [get]
 func (icc *InvitationCodeController) ListInvitationCodes(c *gin.Context) {
 	var codes []models.InvitationCode
+	// 定义需要选择的用户字段
+	userSelectFields := []string{"id", "username", "email", "role", "avatar", "is_allowed", "created_at", "updated_at"}
+
 	if err := icc.db.Preload("UsedByUser", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id", "username") // 只选择必要的字段
+		return db.Select(userSelectFields)
 	}).Preload("Generator", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id", "username")
+		return db.Select(userSelectFields)
 	}).Order("created_at desc").Find(&codes).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取邀请码列表失败: " + err.Error()})
 		return
