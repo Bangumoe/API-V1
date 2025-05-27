@@ -41,6 +41,18 @@ definitions:
         description: '@Description 错误信息'
         type: string
     type: object
+  controllers.GenerateInvitationCodesRequest:
+    properties:
+      count:
+        maximum: 100
+        minimum: 1
+        type: integer
+      expires_in:
+        description: 过期时间，单位：天
+        type: integer
+    required:
+    - count
+    type: object
   controllers.GlobalSettingsResponse:
     properties:
       created_at:
@@ -782,6 +794,118 @@ paths:
       summary: 更新轮播图顺序
       tags:
       - carousel
+  /admin/invitation-codes:
+    get:
+      description: 管理员查看所有邀请码及其状态
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回邀请码列表
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 列出所有邀请码 (管理员)
+      tags:
+      - 邀请码管理
+  /admin/invitation-codes/{code}:
+    delete:
+      description: 管理员删除一个未使用的邀请码
+      parameters:
+      - description: 邀请码
+        in: path
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回操作结果
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 邀请码不存在或已被使用
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 删除邀请码 (管理员)
+      tags:
+      - 邀请码管理
+  /admin/invitation-codes/generate:
+    post:
+      consumes:
+      - application/json
+      description: 管理员生成指定数量的邀请码
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.GenerateInvitationCodesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回生成的邀请码列表
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 生成邀请码 (管理员)
+      tags:
+      - 邀请码管理
   /admin/logs:
     get:
       consumes:
@@ -1885,6 +2009,10 @@ paths:
         in: formData
         name: avatar
         type: file
+      - description: 邀请码 (内测模式下必需)
+        in: formData
+        name: invitation_code
+        type: string
       produces:
       - application/json
       responses:

@@ -675,6 +675,181 @@
                 }
             }
         },
+        "/admin/invitation-codes": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "管理员查看所有邀请码及其状态",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "邀请码管理"
+                ],
+                "summary": "列出所有邀请码 (管理员)",
+                "responses": {
+                    "200": {
+                        "description": "返回邀请码列表",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/invitation-codes/generate": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "管理员生成指定数量的邀请码",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "邀请码管理"
+                ],
+                "summary": "生成邀请码 (管理员)",
+                "parameters": [
+                    {
+                        "description": "请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.GenerateInvitationCodesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回生成的邀请码列表",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/invitation-codes/{code}": {
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "管理员删除一个未使用的邀请码",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "邀请码管理"
+                ],
+                "summary": "删除邀请码 (管理员)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "邀请码",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回操作结果",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "邀请码不存在或已被使用",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/admin/logs": {
             "get": {
                 "security": [
@@ -2389,6 +2564,12 @@
                         "description": "头像文件",
                         "name": "avatar",
                         "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "邀请码 (内测模式下必需)",
+                        "name": "invitation_code",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -3000,6 +3181,23 @@
                 "error": {
                     "description": "@Description 错误信息",
                     "type": "string"
+                }
+            }
+        },
+        "controllers.GenerateInvitationCodesRequest": {
+            "type": "object",
+            "required": [
+                "count"
+            ],
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
+                },
+                "expires_in": {
+                    "description": "过期时间，单位：天",
+                    "type": "integer"
                 }
             }
         },

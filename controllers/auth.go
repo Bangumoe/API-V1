@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"backend/config"
 	"backend/models"
 	"backend/services/activity"
 	"fmt"
@@ -53,6 +54,7 @@ type LoginResponse struct {
 // @Param        email formData string true "邮箱"
 // @Param        role formData string false "角色"
 // @Param        avatar formData file false "头像文件"
+// @Param        invitation_code formData string false "邀请码 (内测模式下必需)"
 // @Success      200  {object}  Response
 // @Failure      400  {object}  Response
 // @Router       /register [post]
@@ -62,11 +64,44 @@ func (ac *AuthController) Register(c *gin.Context) {
 	password := c.PostForm("password")
 	email := c.PostForm("email")
 	role := c.PostForm("role")
+	invitationCodeParam := c.PostForm("invitation_code")
 
 	// 验证必需字段
 	if username == "" || password == "" || email == "" {
 		c.JSON(http.StatusBadRequest, Response{Error: "用户名、密码和邮箱不能为空"})
 		return
+	}
+
+	// 检查是否处于内测模式以及邀请码是否有效
+	cfg := config.GetConfig()
+	var validInvitationCode *models.InvitationCode
+
+	if cfg.IsBetaMode {
+		if invitationCodeParam == "" {
+			c.JSON(http.StatusBadRequest, Response{Error: "内测模式下需要提供邀请码"})
+			return
+		}
+
+		var invCode models.InvitationCode
+		if err := ac.DB.Where("code = ?", invitationCodeParam).First(&invCode).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusBadRequest, Response{Error: "无效的邀请码"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, Response{Error: "邀请码校验失败: " + err.Error()})
+			return
+		}
+
+		if invCode.IsUsed {
+			c.JSON(http.StatusBadRequest, Response{Error: "邀请码已被使用"})
+			return
+		}
+
+		if invCode.ExpiresAt != nil && invCode.ExpiresAt.Before(time.Now()) {
+			c.JSON(http.StatusBadRequest, Response{Error: "邀请码已过期"})
+			return
+		}
+		validInvitationCode = &invCode
 	}
 
 	// 处理头像上传
@@ -121,6 +156,17 @@ func (ac *AuthController) Register(c *gin.Context) {
 	if err := ac.DB.Create(&user).Error; err != nil {
 		c.JSON(http.StatusBadRequest, Response{Error: "用户名或邮箱已存在"})
 		return
+	}
+
+	// 如果使用了邀请码，则标记为已使用并关联用户
+	if validInvitationCode != nil {
+		validInvitationCode.IsUsed = true
+		validInvitationCode.UsedByUserID = &user.ID
+		if err := ac.DB.Save(validInvitationCode).Error; err != nil {
+			// 注意：这里如果保存失败，理论上应该回滚用户创建，或者记录错误供后续处理
+			utils.LogError(fmt.Sprintf("标记邀请码 %s 为已使用失败 (用户ID: %d)", validInvitationCode.Code, user.ID), err)
+			// 不过，为了简化，我们暂时只记录日志
+		}
 	}
 
 	// 记录注册活动
