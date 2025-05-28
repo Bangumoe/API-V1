@@ -148,6 +148,11 @@ func (ac *AuthController) Register(c *gin.Context) {
 		Avatar:   avatarPath,
 	}
 
+	// 如果使用了邀请码，自动启用内测权限
+	if validInvitationCode != nil {
+		user.IsAllowed = true
+	}
+
 	if err := user.HashPassword(); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{Error: "密码加密失败"})
 		return
