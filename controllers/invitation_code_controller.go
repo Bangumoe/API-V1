@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"backend/models"
+	"backend/services/mail"
 	"backend/utils"
 	"fmt"
 	"net/http"
@@ -154,4 +155,79 @@ func (icc *InvitationCodeController) DeleteInvitationCode(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "邀请码删除成功"})
+}
+
+// SendInvitationCodeRequest 发送邀请码请求结构体
+type SendInvitationCodeRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code" binding:"required"`
+}
+
+// SendInvitationCode godoc
+// @Summary 发送邀请码
+// @Description 将指定的邀请码发送到指定邮箱
+// @Tags 邀请码管理
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body SendInvitationCodeRequest true "发送邀请码请求"
+// @Success 200 {object} map[string]string "发送成功"
+// @Failure 400 {object} map[string]string "请求参数错误"
+// @Failure 404 {object} map[string]string "邀请码不存在"
+// @Failure 500 {object} map[string]string "服务器内部错误"
+// @Router /admin/invitation-codes/send [post]
+func (icc *InvitationCodeController) SendInvitationCode(c *gin.Context) {
+	var req SendInvitationCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("无效的请求参数: %v", err),
+		})
+		return
+	}
+
+	// 验证邀请码是否存在且有效
+	var invCode models.InvitationCode
+	if err := icc.db.Where("code = ?", req.Code).First(&invCode).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "邀请码不存在",
+			})
+			return
+		}
+		utils.LogError("查询邀请码失败", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("查询邀请码失败: %v", err),
+		})
+		return
+	}
+
+	// 检查邀请码是否已使用
+	if invCode.IsUsed {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "邀请码已被使用",
+		})
+		return
+	}
+
+	// 检查邀请码是否已过期
+	if invCode.ExpiresAt != nil && invCode.ExpiresAt.Before(time.Now()) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "邀请码已过期",
+		})
+		return
+	}
+
+	// 发送邮件
+	mailService := mail.NewMailService()
+	if err := mailService.SendInvitationCode(req.Email, req.Code, invCode.ExpiresAt); err != nil {
+		utils.LogError("发送邀请码邮件失败", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("发送邀请码邮件失败: %v", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "邀请码已成功发送",
+	})
 }

@@ -7,8 +7,19 @@ import (
 	"sync"
 )
 
+type MailConfig struct {
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	FromAddress string `json:"from_address"`
+	FromName    string `json:"from_name"`
+	UseTLS      bool   `json:"use_tls"`
+}
+
 type Config struct {
-	IsBetaMode bool `json:"is_beta_mode"`
+	IsBetaMode bool       `json:"is_beta_mode"`
+	Mail       MailConfig `json:"mail"`
 }
 
 var (
@@ -20,6 +31,15 @@ func GetConfig() *Config {
 	once.Do(func() {
 		config = &Config{
 			IsBetaMode: false, // 默认关闭内测模式
+			Mail: MailConfig{
+				Host:        "",
+				Port:        587,
+				Username:    "",
+				Password:    "",
+				FromAddress: "",
+				FromName:    "动画网站",
+				UseTLS:      true,
+			},
 		}
 		loadConfig()
 	})

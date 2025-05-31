@@ -101,13 +101,13 @@ func main() {
 
 	// 初始化各种服务
 	activityService := activity.NewActivityService(db)
-
 	// 初始化控制器时注入 activityService
 	authController := controllers.NewAuthController(db, activityService)
 	userManagementController := controllers.NewUserManagementController(db)
 	carouselController := controllers.NewCarouselController(db)
 	betaModeController := controllers.NewBetaModeController(db)
 	invitationCodeController := controllers.NewInvitationCodeController(db)
+	mailSettingsController := controllers.NewMailSettingsController(db)
 
 	// 初始化活动记录服务
 	activityController := controllers.NewActivityController(activityService)
@@ -185,6 +185,12 @@ func main() {
 			admin := authenticated.Group("/admin")
 			admin.Use(middleware.RequireRoles(models.RoleAdmin))
 			{
+				// 用户管理路由
+				admin.GET("/users", userManagementController.GetAllUsers)       // 获取所有用户
+				admin.GET("/users/:id", userManagementController.GetUser)       // 获取单个用户
+				admin.PUT("/users/:id", userManagementController.UpdateUser)    // 更新用户
+				admin.DELETE("/users/:id", userManagementController.DeleteUser) // 删除用户
+
 				// 全局设置路由
 				admin.GET("/settings", controllers.GetGlobalSettings)
 				admin.PUT("/settings", controllers.UpdateGlobalSettings)
@@ -197,12 +203,13 @@ func main() {
 				admin.POST("/invitation-codes/generate", invitationCodeController.GenerateInvitationCodes)
 				admin.GET("/invitation-codes", invitationCodeController.ListInvitationCodes)
 				admin.DELETE("/invitation-codes/:code", invitationCodeController.DeleteInvitationCode)
+				admin.POST("/invitation-codes/send", invitationCodeController.SendInvitationCode) // 新增：发送邀请码
 
-				// 用户管理路由
-				admin.GET("/users", userManagementController.GetAllUsers)
-				admin.GET("/users/:id", userManagementController.GetUser)
-				admin.PUT("/users/:id", userManagementController.UpdateUser)
-				admin.DELETE("/users/:id", userManagementController.DeleteUser)
+				// 邮件服务管理路由
+				admin.GET("/mail/settings", mailSettingsController.GetMailSettings)
+				admin.PUT("/mail/settings", mailSettingsController.UpdateMailSettings)
+				admin.POST("/mail/test", mailSettingsController.TestMailSettings)
+				admin.POST("/mail/send", mailSettingsController.SendCustomMail) // 新增：发送自定义邮件
 
 				// 番剧管理路由
 				admin.DELETE("/bangumi/:id", controllers.DeleteBangumi)
@@ -223,14 +230,13 @@ func main() {
 				v1.POST("/rss_feeds/:id/update", controllers.UpdateRSSFeedByID)
 
 				// 活动记录路由
-				admin.GET("/activities", activityController.GetRecentActivities)
-
-				// Carousel管理路由
+				admin.GET("/activities", activityController.GetRecentActivities) // Carousel管理路由
 				admin.POST("/carousels", carouselController.CreateCarousel)
 				admin.GET("/carousels/:id", carouselController.GetCarousel)
 				admin.PUT("/carousels/:id", carouselController.UpdateCarousel)
 				admin.DELETE("/carousels/:id", carouselController.DeleteCarousel)
 				admin.PUT("/carousels/order", carouselController.UpdateCarouselOrder)
+
 			}
 
 		}
