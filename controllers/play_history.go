@@ -25,6 +25,7 @@ type HistoryResponse struct {
 	Total   int64       `json:"total,omitempty"`
 }
 
+// 去除 history_id 原用于删除时直接删除相应历史记录 现在可能存在一个番剧对应多条历史记录的情况需要删除
 type HistoryArray struct {
 	Id            uint      `json:"id"`
 	Title         string    `json:"title"`
@@ -35,7 +36,6 @@ type HistoryArray struct {
 	ViewCount     uint      `json:"view_count"`
 	FavoriteCount uint      `json:"favorite_count"`
 	Episode       float64   `json:"episode"`
-	HistoryId     uint      `json:"history_id"`
 }
 
 // @Summary 增加或更新观看历史记录
@@ -97,12 +97,13 @@ func AddOrUpdatePlayHistroy(c *gin.Context) {
 }
 
 // @Summary 删除观看历史记录
-// @Description 软删除 需要编写定时器清理过期的记录和已经被删除的记录
+// @Description 软删除 请传入番剧id
+// 需要编写定时器清理过期的记录和已经被删除的记录
 // @Tags 播放记录
 // @Accept       json
 // @Produce      json
 // @Security     Bearer
-// @Param id path int true "historyId"
+// @Param id path int true "bangumiId"
 // @Success 200 {object} BangumiResponse
 // @Failure 500 {object} BangumiResponse
 // @Router /history/{id}/play_history [delete]
@@ -110,11 +111,11 @@ func DeletePlayHistroy(c *gin.Context) {
 	info := "删除观看历史记录"
 
 	idStr := c.Param("id")
-	historyId, err := strconv.ParseUint(idStr, 10, 32)
+	bangumiId, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, BangumiResponse{
 			Code:    http.StatusBadRequest,
-			Message: "无效的 historyId",
+			Message: "无效的 bangumiId",
 			Error:   err.Error(),
 		})
 		return
@@ -128,9 +129,10 @@ func DeletePlayHistroy(c *gin.Context) {
 	var result models.PlayHistory
 
 	// 构建更新
-	err = models.DB.Raw(`update play_history t set t.deleted_at = CURRENT_TIMESTAMP
+	err = models.DB.Raw(`update play_history t set deleted_at = CURRENT_TIMESTAMP
 		where t.user_id = ? and t.deleted_at is null
-		and t.id = ?`, uid, historyId).Scan(&result).Error
+		and exists (select null from rss_items as c2
+			where c2.id = t.rss_items_id and c2.bangumi_id = ? )`, uid, bangumiId).Scan(&result).Error
 	if err != nil {
 		DatabaseErrorHandlerD(c, "update 数据库失败", info+"失败", err)
 		return
@@ -200,47 +202,47 @@ func GetPlayHistory(c *gin.Context) {
 	var history []HistoryArray
 	var total int64
 
+	rawStr := `bangumi t inner join rss_items t2
+				on t2.bangumi_id = t.id
+				inner join play_history t3
+				on t3.rss_items_id = t2.id	
+				where t3.user_id = ?
+				and t3.deleted_at is null
+				and t2.id =  (select c2.id from rss_items c2 
+							inner join play_history c3
+							on c3.rss_items_id = c2.id
+							where c2.bangumi_id = t.id
+							order by c3.updated_at desc limit 1)`
+
 	// 获取总数
-	err := models.DB.Raw(`select count(*)
-		from bangumi t inner join rss_items t2
-		on t2.bangumi_id = t.id
-		inner join play_history t3
-		on t3.rss_items_id = t2.id
-		where t3.user_id = ?
-		and t3.deleted_at is null`, uid).Scan(&total).Error
+	err := models.DB.Raw("select count(*) from "+rawStr, uid).Scan(&total).Error
 	if err != nil {
-		DatabaseErrorHandlerD(c, "select 历史数据 数据库失败", info+"失败", err)
+		DatabaseErrorHandlerD(c, "select 历史数据 数量 数据库失败", info+"失败", err)
 		return
 	}
 
 	total_pages := (total + int64(pageSize) - 1) / int64(pageSize)
-	if page > int(total_pages) {
-		page = int(total_pages)
-	}
+	if total > 0 {
+		if page > int(total_pages) { // 注意没有判断 total_pages是否可能为0 此处不可能为0
+			page = int(total_pages)
+		}
 
-	// 获取历史记录列表
-	err = models.DB.Raw(`select t.id, t.official_title as "title", t.poster_link as "cover",
-		t.`+"`year`"+`, t.season, t3.updated_at as "history_time", t.view_count, t.favorite_count, 
-		t2.url, t2.episode, t3.id as history_id
-		from bangumi t inner join rss_items t2
-		on t2.bangumi_id = t.id
-		inner join play_history t3
-		on t3.rss_items_id = t2.id
-		where t3.user_id = ?
-		and t3.deleted_at is null 
-		order by t3.updated_at desc limit ? offset ?`, uid, pageSize, (page-1)*pageSize).Scan(&history).Error
-	if err != nil {
-		DatabaseErrorHandlerD(c, "select 历史数据 数据库失败", info+"失败", err)
-		return
+		// 获取历史记录列表
+		err = models.DB.Raw(`select t.id, t.official_title as "title", t.poster_link as "cover",
+			t.`+"`year`"+`, t.season, t3.updated_at as "history_time", t.view_count, t.favorite_count, 
+			t2.url, t2.episode
+			from `+rawStr+`
+			order by t3.updated_at desc limit ? offset ?`, uid, pageSize, (page-1)*pageSize).Scan(&history).Error
+		if err != nil {
+			DatabaseErrorHandlerD(c, "select 历史数据 数据库失败", info+"失败", err)
+			return
+		}
+	} else { // 保证list为[]而不是null
+		history = make([]HistoryArray, 0)
 	}
 
 	clientIP := c.ClientIP()
 	fmt.Printf("GetPlayHistory - Client IP: %s\n", clientIP) // 添加日志
-
-	// 保证list为[]而不是null
-	if history == nil {
-		history = make([]HistoryArray, 0)
-	}
 
 	// 处理封面链接
 	for i := range history {

@@ -1,13 +1,16 @@
 package models
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
 type PlayHistory struct {
 	gorm.Model
-	RssItemsId uint `json:"rss_items_id"`
-	UserId     uint `json:"user_id"`
+	UpdatedAt  time.Time `gorm:"index"`
+	UserId     uint      `gorm:"index:play_history_user_id_rss_items_id_IDX,unique" json:"user_id"`
+	RssItemsId uint      `gorm:"index:play_history_user_id_rss_items_id_IDX,unique" json:"rss_items_id"`
 }
 
 func (PlayHistory) TableName() string {
