@@ -2103,7 +2103,7 @@ func GetUserFavorites(c *gin.Context) {
 	fmt.Printf("GetUserFavorites - Client IP: %s\n", clientIP) // 添加日志
 
 	// 构建响应数据
-	var bangumiList []gin.H
+	bangumiList := make([]gin.H, 0) // list 为空的情况
 	for _, fav := range favorites {
 		bangumiList = append(bangumiList, gin.H{
 			"id":             fav.Bangumi.ID,
