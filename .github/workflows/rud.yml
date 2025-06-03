@@ -5,7 +5,8 @@ name: Release upload deploy
 
 on:
   push:
-    branches: [ "prod" ]
+    tags:
+      - "v*.*.*"
 
 jobs:
 
@@ -14,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        ref: prod
+        ref: latest_prod
 
     - name: Set up Go
       uses: actions/setup-go@v4
