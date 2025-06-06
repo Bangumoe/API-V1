@@ -70,14 +70,15 @@ jobs:
     - name: Setup SSH Environment
       env:
         SSH_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
-        SFTP_PRIVATE_KEY: ${{ secrets.SFTP_PRIVATE_KEY }}
+        SFTP_PRIVATE_KEY: ${{ secrets.PROD_SFTPUSER_PRIVATEKEY }}
         DEPLOY_PRIVATE_KEY: ${{ secrets.PROD_DEPLOY_PRIVATEKEY }}
       run: |
         mkdir -p ~/.ssh
         echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
         echo "$SFTP_PRIVATE_KEY" > ~/.ssh/sftp_id_rsa
         echo "$DEPLOY_PRIVATE_KEY" > ~/.ssh/deploy_id_rsa
-        chmod 600 ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/sftp_id_rsa
+        chmod 600 ~/.ssh/deploy_id_rsa
         chmod 644 ~/.ssh/known_hosts
         cat > sftpbatch << EOF
         put -f bangumi_main.tar /upload/API-V1
