@@ -38,11 +38,58 @@ jobs:
       run: |
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bangumi_main
         CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bangumi_main.exe
+        
+    - name: Tar files with permission
+      run: |
+        chmod ug+x bangumi_main
+        tar -cvf bangumi_main.tar bangumi_main
 
-    - name: upload artifact
+    - name: upload linux artifact
       uses: actions/upload-artifact@v4
       with:
-        name: my-artifact
-        path: |
-          bangumi_main
-          bangumi_main.exe
+        name: bangumi_main_linux_amd64
+        path: bangumi_main.tar
+
+    - name: upload windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bangumi_main_windows_amd64.exe
+        path: bangumi_main.exe
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: bangumi_main_linux_amd64
+
+    - name: Display structure of downloaded files
+      run: ls -R
+      
+    - name: Setup SSH Environment
+      env:
+        SSH_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
+        SFTP_PRIVATE_KEY: ${{ secrets.SFTP_PRIVATE_KEY }}
+        DEPLOY_PRIVATE_KEY: ${{ secrets.PROD_DEPLOY_PRIVATEKEY }}
+      run: |
+        mkdir -p ~/.ssh
+        echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+        echo "$SFTP_PRIVATE_KEY" > ~/.ssh/sftp_id_rsa
+        echo "$DEPLOY_PRIVATE_KEY" > ~/.ssh/deploy_id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        chmod 644 ~/.ssh/known_hosts
+        cat > sftpbatch << EOF
+        put -f bangumi_main.tar /upload/API-V1
+        quit
+        EOF
+      
+    - name: Pure Sftp Transmit
+      env:
+        SSH_HOST: ${{ secrets.PROD_SERVER_IP }}
+      run: sftp -i ~/.ssh/sftp_id_rsa -b sftpbatch  sftpuser@$SSH_HOST
+      
+    - name: SSH COMMAND TRIGGER
+      env:
+        SSH_HOST: ${{ secrets.PROD_SERVER_IP }}
+      run: ssh -i ~/.ssh/deploy_id_rsa deploy@$SSH_HOST
